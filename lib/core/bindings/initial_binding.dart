@@ -5,10 +5,12 @@ import '../../modules/auth/service/cognito_auth_service.dart';
 import '../../modules/dashboard/controller/dashboard_controller.dart';
 import '../services/amplify_service.dart';
 import '../services/local_storage_service.dart';
+import '../utils/responsive.dart';
 
 class InitialBinding extends Bindings {
   @override
   void dependencies() {
+    Get.put(ResponsiveController(), permanent: true);
     Get.put(CognitoAuthService(Get.find<AmplifyService>()), permanent: true);
     Get.put(
       AuthController(

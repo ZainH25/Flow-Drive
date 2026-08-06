@@ -11,15 +11,17 @@ class ActivityTab extends StatelessWidget {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
         child: ListView(
-          padding: Responsive.pagePadding(context),
+          padding: Responsive.pagePadding,
           children: [
             Text(
               'Recent Transfers',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: TextStyle(
+                fontSize: Responsive.sp(18),
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 16),
             for (var i = 0; i < 3; i++)
@@ -28,7 +30,7 @@ class ActivityTab extends StatelessWidget {
                 child: ListTile(
                   tileColor: AppColors.surface,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(Responsive.radius(14)),
                     side: const BorderSide(color: AppColors.border),
                   ),
                   leading: CircleAvatar(

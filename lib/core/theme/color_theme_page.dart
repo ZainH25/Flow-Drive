@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
+import '../theme/app_colors.dart';
+import '../utils/responsive.dart';
+import '../widgets/responsive_page.dart';
 
 /// Visual catalog of every color token used across the app.
 class ColorThemePage extends StatelessWidget {
@@ -8,29 +10,29 @@ class ColorThemePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Color Theme'),
-      ),
+    return ResponsivePage(
+      appBar: AppBar(title: const Text('Color Theme')),
+      padding: Responsive.pagePadding,
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           Text(
             'Solid colors',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+            style: TextStyle(
+              fontSize: Responsive.sp(16),
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 12),
           ...AppColors.tokens.map(_ColorSwatch.new),
           const SizedBox(height: 28),
           Text(
             'Gradients',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
+            style: TextStyle(
+              fontSize: Responsive.sp(16),
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 12),
           ...AppColors.gradientTokens.map(_GradientSwatch.new),
@@ -54,7 +56,7 @@ class _ColorSwatch extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Responsive.radius(14)),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
@@ -77,18 +79,18 @@ class _ColorSwatch extends StatelessWidget {
               children: [
                 Text(
                   'AppColors.${token.name}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
-                    fontSize: 14,
+                    fontSize: Responsive.sp(14),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   token.hex,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13,
+                    fontSize: Responsive.sp(13),
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -112,7 +114,7 @@ class _GradientSwatch extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Responsive.radius(14)),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -129,10 +131,10 @@ class _GradientSwatch extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Text(
               'AppColors.${token.name}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
-                fontSize: 14,
+                fontSize: Responsive.sp(14),
               ),
             ),
           ),

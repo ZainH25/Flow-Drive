@@ -10,9 +10,9 @@ class CanvasTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
         child: Padding(
-          padding: Responsive.pagePadding(context),
+          padding: Responsive.pagePadding,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -39,15 +39,21 @@ class CanvasTab extends StatelessWidget {
               const SizedBox(height: 32),
               Text(
                 'Spatial Canvas',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: TextStyle(
+                  fontSize: Responsive.sp(22),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Your node-based transfer canvas will live here. Drag files between devices, pinch to zoom, and route data with spatial gestures.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: Responsive.sp(15),
+                  height: 1.5,
+                ),
               ),
             ],
           ),

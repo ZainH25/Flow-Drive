@@ -36,6 +36,8 @@ class DashboardController extends GetxController {
     if (index == currentIndex.value) return;
     currentIndex.value = index;
   }
+
+  void goHome() => currentIndex.value = 0;
 }
 
 class DashboardTab {

@@ -13,12 +13,9 @@ class SplashController {
   }
 
   String resolveNextRoute() {
-    if (!_authController.isAuthenticated) {
-      return AppRoutes.login;
+    if (_authController.isAuthenticated) {
+      return AppRoutes.dashboard;
     }
-    if (!_authController.isOnboardingCompleted) {
-      return AppRoutes.onboarding;
-    }
-    return AppRoutes.dashboard;
+    return AppRoutes.login;
   }
 }

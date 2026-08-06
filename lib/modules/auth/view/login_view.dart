@@ -5,9 +5,9 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/responsive.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/floating_files_background.dart';
+import '../../../core/widgets/responsive_page.dart';
 import '../controller/auth_controller.dart';
 import '../controller/auth_form_controller.dart';
 
@@ -20,10 +20,8 @@ class LoginView extends GetView<AuthFormController> {
     final success = await controller.submit();
     if (!success) return;
 
-    final route = _auth.isOnboardingCompleted
-        ? AppRoutes.dashboard
-        : AppRoutes.onboarding;
-    Get.offAllNamed(route);
+    await _auth.onLoginSuccess();
+    Get.offAllNamed(AppRoutes.dashboard);
   }
 
   InputDecoration _fieldDecoration(String hint, {Widget? prefix, Widget? suffix}) {
@@ -66,21 +64,8 @@ class LoginView extends GetView<AuthFormController> {
           ),
           const FloatingFilesBackground(),
           SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: Responsive.pagePadding(context),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: Center(
-                      child: SizedBox(
-                        width: Responsive.authCardWidth(context),
-                        child: Obx(() => _buildCard(context)),
-                      ),
-                    ),
-                  ),
-                );
-              },
+            child: ResponsiveCenteredScroll(
+              child: Obx(() => _buildCard(context)),
             ),
           ),
         ],

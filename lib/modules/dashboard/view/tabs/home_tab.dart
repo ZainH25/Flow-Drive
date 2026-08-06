@@ -11,9 +11,9 @@ class HomeTab extends StatelessWidget {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
         child: ListView(
-          padding: Responsive.pagePadding(context),
+          padding: Responsive.pagePadding,
           children: const [
             _StatCard(
               title: 'Connected Devices',
@@ -61,7 +61,7 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Responsive.radius(16)),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
@@ -89,16 +89,16 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 13,
+                    fontSize: Responsive.sp(13),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: Responsive.sp(20),
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),

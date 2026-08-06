@@ -19,15 +19,15 @@ class ProfileTab extends StatelessWidget {
       return Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+          constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
           child: ListView(
-            padding: Responsive.pagePadding(context),
+            padding: Responsive.pagePadding,
             children: [
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   gradient: AppColors.primaryGradient,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(Responsive.radius(20)),
                 ),
                 child: Row(
                   children: [
@@ -47,9 +47,9 @@ class ProfileTab extends StatelessWidget {
                         children: [
                           Text(
                             user?.username ?? 'User',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textOnPrimary,
-                              fontSize: 20,
+                              fontSize: Responsive.sp(20),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -58,6 +58,7 @@ class ProfileTab extends StatelessWidget {
                             user?.email ?? 'Not signed in',
                             style: TextStyle(
                               color: AppColors.textOnPrimary.withValues(alpha: 0.85),
+                              fontSize: Responsive.sp(14),
                             ),
                           ),
                         ],
@@ -110,7 +111,7 @@ class _ProfileMenuItem extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Responsive.radius(14)),
         side: const BorderSide(color: AppColors.border),
       ),
       child: ListTile(

@@ -11,10 +11,10 @@ class ExploreTab extends StatelessWidget {
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
         child: GridView.count(
-          crossAxisCount: Responsive.isDesktop(context) ? 4 : 2,
-          padding: Responsive.pagePadding(context),
+          crossAxisCount: Responsive.isDesktop ? 4 : 2,
+          padding: Responsive.pagePadding,
           mainAxisSpacing: 16,
           crossAxisSpacing: 16,
           children: const [
@@ -61,18 +61,19 @@ class _ExploreTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Responsive.radius(16)),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 40, color: color),
+          Icon(icon, size: Responsive.sp(40), color: color),
           const SizedBox(height: 12),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w600,
+              fontSize: Responsive.sp(14),
               color: AppColors.textPrimary,
             ),
           ),

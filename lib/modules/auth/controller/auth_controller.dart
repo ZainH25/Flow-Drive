@@ -4,6 +4,7 @@ import '../../../core/config/aws_config.dart';
 import '../../../core/config/dev_credentials.dart';
 import '../../../core/services/amplify_service.dart';
 import '../../../core/services/local_storage_service.dart';
+import '../../dashboard/controller/dashboard_controller.dart';
 import '../model/user_model.dart';
 import '../service/cognito_auth_service.dart';
 
@@ -132,6 +133,14 @@ class AuthController extends GetxController {
 
   Future<void> completeOnboarding() async {
     await _storageService.setOnboardingCompleted(value: true);
+  }
+
+  /// Called after a successful sign-in — skip onboarding and open Home tab.
+  Future<void> onLoginSuccess() async {
+    await completeOnboarding();
+    if (Get.isRegistered<DashboardController>()) {
+      Get.find<DashboardController>().goHome();
+    }
   }
 
   void clearError() => errorMessage.value = null;

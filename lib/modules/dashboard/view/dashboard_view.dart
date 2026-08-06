@@ -27,10 +27,10 @@ class DashboardView extends GetView<DashboardController> {
     return Obx(() {
       final index = controller.currentIndex.value;
       final tab = DashboardController.tabs[index];
-      final isDesktop = Responsive.isDesktop(context);
 
-      if (isDesktop) {
+      if (Responsive.isDesktop) {
         return Scaffold(
+          backgroundColor: AppColors.background,
           appBar: AppBar(
             title: Text(tab.label),
             actions: [
@@ -40,7 +40,7 @@ class DashboardView extends GetView<DashboardController> {
                   child: Text(
                     AppConstants.appName,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: Responsive.sp(13),
                       color: AppColors.textSecondary.withValues(alpha: 0.8),
                       fontWeight: FontWeight.w500,
                     ),
@@ -74,6 +74,7 @@ class DashboardView extends GetView<DashboardController> {
       }
 
       return Scaffold(
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           title: Text(tab.label),
           centerTitle: false,

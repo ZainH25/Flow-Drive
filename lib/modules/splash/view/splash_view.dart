@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/floating_files_background.dart';
 import '../../auth/controller/auth_controller.dart';
 import '../controller/splash_controller.dart';
@@ -43,6 +44,11 @@ class _SplashViewState extends State<SplashView>
   Future<void> _bootstrap() async {
     await _controller.initializeApp();
     if (!mounted) return;
+
+    final auth = Get.find<AuthController>();
+    if (auth.isAuthenticated) {
+      await auth.onLoginSuccess();
+    }
     Get.offAllNamed(_controller.resolveNextRoute());
   }
 
@@ -65,9 +71,11 @@ class _SplashViewState extends State<SplashView>
           FadeTransition(
             opacity: _fade,
             child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
+                child: Padding(
+                  padding: Responsive.pagePadding,
+                  child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
@@ -173,6 +181,7 @@ class _SplashViewState extends State<SplashView>
               ),
             ),
           ),
+        ),
         ],
       ),
     );
