@@ -1,46 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../model/onboarding_item.dart';
 
-class OnboardingController extends ChangeNotifier {
+class OnboardingController extends GetxController {
   OnboardingController() {
-    _pages = const [
+    pages = const [
       OnboardingItem(
-        title: 'Track Every Trip',
+        title: 'Instant Cross-Device Transfer',
         description:
-            'Monitor your drives in real time with smart route insights and live updates.',
-        icon: Icons.route_rounded,
-        gradientColors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+            'Send and retrieve files rapidly across Windows, iOS, and Android without digging through folders.',
+        icon: Icons.devices_rounded,
+        gradientColors: AppColors.onboardingGradientsPage1,
       ),
       OnboardingItem(
-        title: 'Stay Connected',
+        title: 'Spatial Canvas',
         description:
-            'Sync seamlessly with AWS cloud services and access your data anywhere.',
-        icon: Icons.cloud_sync_rounded,
-        gradientColors: [Color(0xFF1565C0), Color(0xFF00BFA5)],
+            'Files and target devices appear as floating nodes — route data visually across your connected systems.',
+        icon: Icons.hub_outlined,
+        gradientColors: AppColors.onboardingGradientsPage2,
       ),
       OnboardingItem(
-        title: 'Drive with Confidence',
+        title: 'Gesture-Driven Flow',
         description:
-            'Personalized dashboard, activity history, and secure Cognito authentication.',
-        icon: Icons.verified_user_rounded,
-        gradientColors: [Color(0xFF002171), Color(0xFF0D47A1)],
+            'Drag between nodes, pinch, and swipe to transfer files frictionlessly with spatial gestures.',
+        icon: Icons.touch_app_rounded,
+        gradientColors: AppColors.onboardingGradientsPage3,
       ),
     ];
   }
 
-  late final List<OnboardingItem> _pages;
+  late final List<OnboardingItem> pages;
   final pageController = PageController();
-  int _currentPage = 0;
+  final currentPage = 0.obs;
 
-  List<OnboardingItem> get pages => _pages;
-  int get currentPage => _currentPage;
-  bool get isLastPage => _currentPage == _pages.length - 1;
+  bool get isLastPage => currentPage.value == pages.length - 1;
 
-  void onPageChanged(int index) {
-    _currentPage = index;
-    notifyListeners();
-  }
+  void onPageChanged(int index) => currentPage.value = index;
 
   void nextPage() {
     if (isLastPage) return;
@@ -50,7 +47,9 @@ class OnboardingController extends ChangeNotifier {
     );
   }
 
-  void disposeController() {
+  @override
+  void onClose() {
     pageController.dispose();
+    super.onClose();
   }
 }

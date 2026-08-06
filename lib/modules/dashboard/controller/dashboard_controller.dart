@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-class DashboardController extends ChangeNotifier {
-  int _currentIndex = 0;
+class DashboardController extends GetxController {
+  final currentIndex = 0.obs;
 
-  int get currentIndex => _currentIndex;
-
-  static const List<DashboardTab> tabs = [
+  static const tabs = <DashboardTab>[
     DashboardTab(
       label: 'Home',
       icon: Icons.home_rounded,
       activeIcon: Icons.home_filled,
     ),
     DashboardTab(
-      label: 'Drive',
-      icon: Icons.directions_car_outlined,
-      activeIcon: Icons.directions_car_rounded,
+      label: 'Canvas',
+      icon: Icons.hub_outlined,
+      activeIcon: Icons.hub_rounded,
     ),
     DashboardTab(
       label: 'Activity',
@@ -34,9 +33,8 @@ class DashboardController extends ChangeNotifier {
   ];
 
   void setIndex(int index) {
-    if (index == _currentIndex) return;
-    _currentIndex = index;
-    notifyListeners();
+    if (index == currentIndex.value) return;
+    currentIndex.value = index;
   }
 }
 

@@ -21,4 +21,24 @@ class Validators {
     }
     return null;
   }
+
+  static String? name(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Name is required';
+    }
+    if (value.trim().length < 2) {
+      return 'Enter at least 2 characters';
+    }
+    return null;
+  }
+
+  static String? confirmPassword(String? value, String password) {
+    if (value == null || value.isEmpty) {
+      return 'Confirm your password';
+    }
+    if (value != password) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
 }

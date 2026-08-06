@@ -1,5 +1,5 @@
 name: flow_drive
-description: "Flow Drive - Mobile app with AWS Cognito & GraphQL."
+description: "Flow - Rapid cross-device file transfer with spatial canvas UI."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -13,8 +13,8 @@ dependencies:
 
   cupertino_icons: ^1.0.8
 
-  # State management (Controllers)
-  provider: ^6.1.2
+  # State management
+  get: ^4.7.2
 
   # AWS Amplify — Cognito auth & AppSync GraphQL
   amplify_flutter: ^2.6.0

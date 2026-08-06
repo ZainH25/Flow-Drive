@@ -1,54 +1,43 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverAppBar(
-          expandedHeight: 140,
-          pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            title: const Text('Home'),
-            background: Container(
-              decoration: const BoxDecoration(
-                gradient: AppColors.primaryGradient,
-              ),
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+        child: ListView(
+          padding: Responsive.pagePadding(context),
+          children: const [
+            _StatCard(
+              title: 'Connected Devices',
+              value: '0',
+              icon: Icons.devices_rounded,
+              color: AppColors.primary,
             ),
-          ),
+            SizedBox(height: 16),
+            _StatCard(
+              title: 'Files in Transit',
+              value: '0',
+              icon: Icons.swap_horiz_rounded,
+              color: AppColors.accent,
+            ),
+            SizedBox(height: 16),
+            _StatCard(
+              title: 'Transfers Today',
+              value: '0',
+              icon: Icons.file_upload_outlined,
+              color: AppColors.primaryLight,
+            ),
+          ],
         ),
-        SliverPadding(
-          padding: const EdgeInsets.all(20),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              _StatCard(
-                title: 'Today\'s Distance',
-                value: '0 km',
-                icon: Icons.speed_rounded,
-                color: AppColors.primary,
-              ),
-              const SizedBox(height: 16),
-              _StatCard(
-                title: 'Active Trips',
-                value: '0',
-                icon: Icons.trip_origin_rounded,
-                color: AppColors.accent,
-              ),
-              const SizedBox(height: 16),
-              _StatCard(
-                title: 'Weekly Summary',
-                value: 'Ready',
-                icon: Icons.calendar_today_rounded,
-                color: AppColors.primaryLight,
-              ),
-            ]),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

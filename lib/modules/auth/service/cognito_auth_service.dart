@@ -32,6 +32,42 @@ class CognitoAuthService {
     return _fetchCurrentUser();
   }
 
+  Future<UserModel> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    if (!isAmplifyReady) {
+      throw Exception('AWS Cognito is not configured yet.');
+    }
+
+    final result = await Amplify.Auth.signUp(
+      username: email.trim(),
+      password: password,
+      options: SignUpOptions(
+        userAttributes: {
+          AuthUserAttributeKey.email: email.trim(),
+          AuthUserAttributeKey.name: displayName.trim(),
+        },
+      ),
+    );
+
+    if (!result.isSignUpComplete) {
+      throw Exception('Sign up requires email verification.');
+    }
+
+    final signInResult = await Amplify.Auth.signIn(
+      username: email.trim(),
+      password: password,
+    );
+
+    if (!signInResult.isSignedIn) {
+      throw Exception('Account created. Please sign in.');
+    }
+
+    return _fetchCurrentUser();
+  }
+
   Future<UserModel> _fetchCurrentUser() async {
     final session = await Amplify.Auth.fetchAuthSession();
     if (!session.isSignedIn) {

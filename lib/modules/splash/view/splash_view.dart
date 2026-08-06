@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/floating_files_background.dart';
 import '../../auth/controller/auth_controller.dart';
 import '../controller/splash_controller.dart';
 
@@ -16,180 +17,163 @@ class SplashView extends StatefulWidget {
 
 class _SplashViewState extends State<SplashView>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _animationController;
-  late final Animation<double> _scaleAnimation;
-  late final Animation<double> _fadeAnimation;
+  late final AnimationController _fadeController;
+  late final Animation<double> _fade;
+  late final Animation<double> _progress;
   late final SplashController _controller;
 
   @override
   void initState() {
     super.initState();
-    final authController = context.read<AuthController>();
-    _controller = SplashController(authController);
+    _controller = SplashController(Get.find<AuthController>());
 
-    _animationController = AnimationController(
+    _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fade = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+    _progress = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutBack,
-      ),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
-      ),
-    );
-
-    _animationController.forward();
+    _fadeController.forward();
     _bootstrap();
   }
 
   Future<void> _bootstrap() async {
     await _controller.initializeApp();
     if (!mounted) return;
-
-    final nextRoute = _controller.resolveNextRoute();
-    Navigator.of(context).pushReplacementNamed(nextRoute);
+    Get.offAllNamed(_controller.resolveNextRoute());
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: AppColors.splashGradient,
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: -80,
-              right: -60,
-              child: _DecorativeCircle(
-                size: 220,
-                color: Colors.white.withValues(alpha: 0.06),
-              ),
-            ),
-            Positioned(
-              bottom: -100,
-              left: -80,
-              child: _DecorativeCircle(
-                size: 280,
-                color: AppColors.accent.withValues(alpha: 0.12),
-              ),
-            ),
-            Center(
-              child: AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return Opacity(
-                    opacity: _fadeAnimation.value,
-                    child: Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: child,
-                    ),
-                  );
-                },
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(gradient: AppColors.splashGradient),
+          ),
+          const FloatingFilesBackground(opacity: 0.55),
+          FadeTransition(
+            opacity: _fade,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _LogoWidget(),
-                    const SizedBox(height: 24),
-                    Text(
-                      AppConstants.appName,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: AppColors.textOnPrimary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                    Container(
+                      width: 148,
+                      height: 148,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: AppColors.authCardShadow,
+                            blurRadius: 40,
+                            offset: Offset(0, 16),
                           ),
+                        ],
+                      ),
+                      child: Image.asset(
+                        AssetPaths.logo,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.hub_rounded,
+                          size: 56,
+                          color: AppColors.brandIndigo,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Drive smarter. Flow better.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textOnPrimary.withValues(alpha: 0.85),
+                    const SizedBox(height: 36),
+                    RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          height: 1.25,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Welcome to\n'),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: ShaderMask(
+                              shaderCallback: (bounds) =>
+                                  AppColors.brandGradient.createShader(bounds),
+                              child: Text(
+                                AppConstants.appName,
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textOnPrimary,
+                                ),
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      AppConstants.splashTagline,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
                     ),
                     const SizedBox(height: 48),
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppColors.textOnPrimary.withValues(alpha: 0.9),
-                      ),
+                    AnimatedBuilder(
+                      animation: _progress,
+                      builder: (context, child) {
+                        return Column(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: _progress.value,
+                                minHeight: 5,
+                                backgroundColor:
+                                    AppColors.brandIndigo.withValues(alpha: 0.12),
+                                valueColor: const AlwaysStoppedAnimation(
+                                  AppColors.brandIndigo,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'SYNCING WORKSPACE...',
+                              style: TextStyle(
+                                fontSize: 11,
+                                letterSpacing: 1.4,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoWidget extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 100,
-      height: 100,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Image.asset(
-          AssetPaths.logo,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.directions_car_rounded,
-            size: 52,
-            color: AppColors.primary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DecorativeCircle extends StatelessWidget {
-  const _DecorativeCircle({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
       ),
     );
   }

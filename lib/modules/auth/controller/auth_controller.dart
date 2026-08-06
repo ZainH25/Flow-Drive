@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 
+import '../../../core/config/aws_config.dart';
+import '../../../core/config/dev_credentials.dart';
 import '../../../core/services/amplify_service.dart';
 import '../../../core/services/local_storage_service.dart';
 import '../model/user_model.dart';
@@ -7,7 +9,7 @@ import '../service/cognito_auth_service.dart';
 
 enum AuthStatus { unknown, unauthenticated, authenticated }
 
-class AuthController extends ChangeNotifier {
+class AuthController extends GetxController {
   AuthController({
     required CognitoAuthService authService,
     required LocalStorageService storageService,
@@ -20,55 +22,117 @@ class AuthController extends ChangeNotifier {
   final LocalStorageService _storageService;
   final AmplifyService _amplifyService;
 
-  AuthStatus _status = AuthStatus.unknown;
-  UserModel? _user;
-  String? _errorMessage;
+  final status = AuthStatus.unknown.obs;
+  final user = Rxn<UserModel>();
+  final errorMessage = RxnString();
 
-  AuthStatus get status => _status;
-  UserModel? get user => _user;
-  String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _status == AuthStatus.authenticated;
+  bool get isAuthenticated => status.value == AuthStatus.authenticated;
   bool get isOnboardingCompleted => _storageService.isOnboardingCompleted;
 
   Future<void> initialize() async {
     await _amplifyService.configure();
-    _user = await _authService.getCurrentUser();
-    _status = _user != null ? AuthStatus.authenticated : AuthStatus.unauthenticated;
-    notifyListeners();
+    user.value = _restoreDevSession() ?? await _authService.getCurrentUser();
+    status.value =
+        user.value != null ? AuthStatus.authenticated : AuthStatus.unauthenticated;
+  }
+
+  Future<bool> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    errorMessage.value = null;
+
+    if (canUseDevLogin) {
+      final normalizedEmail = email.trim().toLowerCase();
+      user.value = UserModel(
+        id: 'dev-${normalizedEmail.hashCode}',
+        email: normalizedEmail,
+        username: displayName,
+        isEmailVerified: true,
+      );
+      status.value = AuthStatus.authenticated;
+      await _storageService.setDevUserEmail(normalizedEmail);
+      return true;
+    }
+
+    try {
+      user.value = await _authService.signUp(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+      status.value = AuthStatus.authenticated;
+      return true;
+    } on Exception catch (e) {
+      errorMessage.value = e.toString().replaceFirst('Exception: ', '');
+      status.value = AuthStatus.unauthenticated;
+      return false;
+    }
   }
 
   Future<bool> signIn(String email, String password) async {
-    _errorMessage = null;
-    notifyListeners();
+    errorMessage.value = null;
+
+    final devAccount = _tryDevSignIn(email, password);
+    if (devAccount != null) {
+      user.value = devAccount;
+      status.value = AuthStatus.authenticated;
+      await _storageService.setDevUserEmail(devAccount.email);
+      return true;
+    }
 
     try {
-      _user = await _authService.signIn(email: email, password: password);
-      _status = AuthStatus.authenticated;
-      notifyListeners();
+      user.value = await _authService.signIn(email: email, password: password);
+      status.value = AuthStatus.authenticated;
       return true;
     } on Exception catch (e) {
-      _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
+      errorMessage.value = e.toString().replaceFirst('Exception: ', '');
+      status.value = AuthStatus.unauthenticated;
       return false;
     }
   }
 
   Future<void> signOut() async {
+    await _storageService.clearDevUserEmail();
     await _authService.signOut();
-    _user = null;
-    _status = AuthStatus.unauthenticated;
-    _errorMessage = null;
-    notifyListeners();
+    user.value = null;
+    status.value = AuthStatus.unauthenticated;
+    errorMessage.value = null;
   }
+
+  UserModel? _restoreDevSession() {
+    final email = _storageService.devUserEmail;
+    if (email == null) return null;
+
+    final account = DevCredentials.findByEmail(email);
+    if (account == null) return null;
+
+    return UserModel(
+      id: account.id,
+      email: account.email,
+      username: account.displayName,
+      isEmailVerified: true,
+    );
+  }
+
+  UserModel? _tryDevSignIn(String email, String password) {
+    if (!DevCredentials.matches(email, password)) return null;
+
+    final account = DevCredentials.findByEmail(email)!;
+    return UserModel(
+      id: account.id,
+      email: account.email,
+      username: account.displayName,
+      isEmailVerified: true,
+    );
+  }
+
+  bool get canUseDevLogin => !AwsConfig.isConfigured;
 
   Future<void> completeOnboarding() async {
     await _storageService.setOnboardingCompleted(value: true);
-    notifyListeners();
   }
 
-  void clearError() {
-    _errorMessage = null;
-    notifyListeners();
-  }
+  void clearError() => errorMessage.value = null;
 }
