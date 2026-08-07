@@ -6,4 +6,7 @@ class AppRoutes {
   static const String onboarding = '/onboarding';
   static const String dashboard = '/dashboard';
   static const String colorTheme = '/color-theme';
+  static const String sendFiles = '/send-files';
+  static const String deviceRadar = '/device-radar';
+  static const String transferComplete = '/transfer-complete';
 }

@@ -7,23 +7,18 @@ class DashboardController extends GetxController {
   static const tabs = <DashboardTab>[
     DashboardTab(
       label: 'Home',
-      icon: Icons.home_rounded,
-      activeIcon: Icons.home_filled,
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
     ),
     DashboardTab(
-      label: 'Canvas',
-      icon: Icons.hub_outlined,
-      activeIcon: Icons.hub_rounded,
+      label: 'Files',
+      icon: Icons.folder_outlined,
+      activeIcon: Icons.folder_rounded,
     ),
     DashboardTab(
-      label: 'Activity',
-      icon: Icons.bar_chart_outlined,
-      activeIcon: Icons.bar_chart_rounded,
-    ),
-    DashboardTab(
-      label: 'Explore',
-      icon: Icons.explore_outlined,
-      activeIcon: Icons.explore_rounded,
+      label: 'Transfers',
+      icon: Icons.swap_horiz_outlined,
+      activeIcon: Icons.swap_horiz_rounded,
     ),
     DashboardTab(
       label: 'Profile',
@@ -31,6 +26,26 @@ class DashboardController extends GetxController {
       activeIcon: Icons.person_rounded,
     ),
   ];
+
+  /// Bottom bar slot index (0–4) with FAB at slot 2.
+  int get navBarIndex => switch (currentIndex.value) {
+        0 => 0,
+        1 => 1,
+        2 => 3,
+        3 => 4,
+        _ => 0,
+      };
+
+  void setNavBarIndex(int navIndex) {
+    if (navIndex == 2) return;
+    currentIndex.value = switch (navIndex) {
+      0 => 0,
+      1 => 1,
+      3 => 2,
+      4 => 3,
+      _ => currentIndex.value,
+    };
+  }
 
   void setIndex(int index) {
     if (index == currentIndex.value) return;

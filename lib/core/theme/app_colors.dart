@@ -14,7 +14,8 @@ class AppColors {
   static const Color purple = Color(0xFF7E57C2);
 
   // ── Surfaces ───────────────────────────────────────────────────────────
-  static const Color background = Color(0xFFF9F9FF);
+  static const Color background = Color.fromARGB(255, 244, 244, 255);
+  // static const Color background = Color(0xFFF9F9FF);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceDark = Color(0xFF1A1F36);
   static const Color card = Color(0xFFFFFFFF);

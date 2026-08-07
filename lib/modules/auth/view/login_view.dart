@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/asset_paths.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -94,8 +93,8 @@ class LoginView extends GetView<AuthFormController> {
         children: [
           Center(
             child: Container(
-              width: 72,
-              height: 72,
+              width: 122,
+              height: 122,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -114,12 +113,13 @@ class LoginView extends GetView<AuthFormController> {
                 errorBuilder: (_, __, ___) => const Icon(
                   Icons.hub_rounded,
                   color: AppColors.brandIndigo,
-                  size: 36,
+                  size: 50,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 15),
+
           RichText(
             textAlign: TextAlign.center,
             text: TextSpan(
@@ -130,19 +130,25 @@ class LoginView extends GetView<AuthFormController> {
                 height: 1.2,
               ),
               children: [
-                TextSpan(text: isSignIn ? 'Sign in to\n' : 'Sign up for\n'),
+
                 WidgetSpan(
                   alignment: PlaceholderAlignment.baseline,
                   baseline: TextBaseline.alphabetic,
                   child: ShaderMask(
-                    shaderCallback: (bounds) =>
-                        AppColors.brandGradient.createShader(bounds),
-                    child: Text(
-                      AppConstants.appName,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textOnPrimary,
+                    shaderCallback: (bounds) => AppColors.brandGradient.createShader(bounds),
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textOnPrimary, // The base color needed for the gradient mask
+                          height: 1.2,
+                        ),
+                        children: [
+                          TextSpan(text: isSignIn ? 'Sign in' : 'Sign up '),
+                          // TextSpan(text: AppConstants.appName), // Now just a normal TextSpan!
+                        ],
                       ),
                     ),
                   ),
@@ -162,7 +168,9 @@ class LoginView extends GetView<AuthFormController> {
               height: 1.45,
             ),
           ),
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 10),
+          
           Form(
             key: controller.formKey,
             child: Column(
