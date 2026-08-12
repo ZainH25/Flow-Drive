@@ -17,8 +17,77 @@ final class DeviceStorageChannel {
           "totalMb": totalMb,
           "freeMb": freeMb,
         ])
+      case "revealFolder":
+        guard
+          let args = call.arguments as? [String: Any],
+          let path = args["path"] as? String,
+          !path.isEmpty
+        else {
+          result(
+            FlutterError(code: "INVALID", message: "path is required", details: nil)
+          )
+          return
+        }
+        DeviceStorageChannel.revealFolder(path: path, result: result)
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  /// Open [path] in the Files app when possible (map stays unchanged).
+  private static func revealFolder(path: String, result: @escaping FlutterResult) {
+    var isDir: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+      result(
+        FlutterError(code: "NOT_FOUND", message: "Folder not found", details: nil)
+      )
+      return
+    }
+
+    let fileURL = URL(fileURLWithPath: path)
+
+    // Deep-link into Files (same idea as Finder on macOS).
+    var components = URLComponents()
+    components.scheme = "shareddocuments"
+    components.path = fileURL.path
+
+    if let filesURL = components.url {
+      UIApplication.shared.open(filesURL, options: [:]) { success in
+        if success {
+          result(true)
+          return
+        }
+        openFilesAppRoot(result: result)
+      }
+      return
+    }
+
+    openFilesAppRoot(result: result)
+  }
+
+  private static func openFilesAppRoot(result: @escaping FlutterResult) {
+    guard let root = URL(string: "shareddocuments://") else {
+      result(
+        FlutterError(
+          code: "OPEN_FAILED",
+          message: "Could not open the Files app for this folder.",
+          details: nil
+        )
+      )
+      return
+    }
+    UIApplication.shared.open(root, options: [:]) { success in
+      if success {
+        result(true)
+      } else {
+        result(
+          FlutterError(
+            code: "OPEN_FAILED",
+            message: "Could not open the Files app for this folder.",
+            details: nil
+          )
+        )
       }
     }
   }

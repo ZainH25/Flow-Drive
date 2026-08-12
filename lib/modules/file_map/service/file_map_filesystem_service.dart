@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 
 import '../../transfer/service/android_storage_permission.dart';
 import '../../transfer/service/ios_folder_picker.dart';
 import '../../transfer/service/local_file_browser_service.dart';
 import '../model/file_graph_node.dart';
 
-class GraphFileSystemService {
+class FileMapFileSystemService {
+  static const _storageChannel = MethodChannel('flow_drive/device_storage');
+
   Future<void> initialize() async {
     if (Platform.isAndroid) {
       await AndroidStoragePermission.ensure();
@@ -38,6 +41,59 @@ class GraphFileSystemService {
       type: GraphNodeType.folder,
       path: path,
     );
+  }
+
+  /// Open [path] in the system file manager (Finder / Explorer / Files).
+  /// Does not change the File Map — browse only.
+  Future<void> revealInSystemFileManager(String path) async {
+    final dir = Directory(path);
+    if (!await dir.exists()) {
+      throw Exception('That folder is no longer available on disk.');
+    }
+
+    if (Platform.isMacOS) {
+      final result = await Process.run('open', [path]);
+      if (result.exitCode != 0) {
+        throw Exception(
+          (result.stderr.toString().trim().isNotEmpty)
+              ? result.stderr.toString().trim()
+              : 'Could not open Finder at that path.',
+        );
+      }
+      return;
+    }
+
+    if (Platform.isWindows) {
+      await Process.run('explorer', [path]);
+      return;
+    }
+
+    if (Platform.isLinux) {
+      final result = await Process.run('xdg-open', [path]);
+      if (result.exitCode != 0) {
+        throw Exception(
+          (result.stderr.toString().trim().isNotEmpty)
+              ? result.stderr.toString().trim()
+              : 'Could not open the file manager at that path.',
+        );
+      }
+      return;
+    }
+
+    // iPhone / Android — native Files / Documents UI (same idea as Finder).
+    if (Platform.isAndroid) {
+      await AndroidStoragePermission.ensure();
+    }
+
+    try {
+      await _storageChannel.invokeMethod<void>('revealFolder', {'path': path});
+    } on MissingPluginException {
+      throw Exception(
+        'Folder reveal is not ready. Fully stop the app and run again (not hot reload).',
+      );
+    } on PlatformException catch (e) {
+      throw Exception(e.message ?? 'Could not open that folder in Files.');
+    }
   }
 
   Future<FileGraphNode?> _pickIosFolder() async {

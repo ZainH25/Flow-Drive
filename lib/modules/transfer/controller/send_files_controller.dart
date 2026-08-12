@@ -51,7 +51,26 @@ class SendFilesController extends GetxController {
         _selectFile(file);
       }
     }
-    loadRoot();
+
+    final initialFolder = _initialFolderFromArgs(args);
+    if (initialFolder != null) {
+      openAtPath(initialFolder.path, name: initialFolder.name);
+    } else {
+      loadRoot();
+    }
+  }
+
+  ({String path, String name})? _initialFolderFromArgs(dynamic args) {
+    if (args is! Map) return null;
+    final path = args['initialFolderPath']?.toString();
+    if (path == null || path.isEmpty) return null;
+    final name = args['initialFolderName']?.toString();
+    return (
+      path: path,
+      name: (name != null && name.isNotEmpty)
+          ? name
+          : LocalFileBrowserService.displayNameForPath(path),
+    );
   }
 
   String fileKey(PickedFileItem file) => '${file.path ?? ''}|${file.name}';
@@ -82,6 +101,42 @@ class SendFilesController extends GetxController {
   void _addPickedExtra(PickedFileItem file) {
     if (!pickedExtras.any((f) => fileKey(f) == fileKey(file))) {
       pickedExtras.add(file);
+    }
+  }
+
+  /// Open a specific folder path in the local storage browser (e.g. from File Map).
+  Future<void> openAtPath(String path, {String? name}) async {
+    isLoading.value = true;
+    storagePermissionDenied.value = false;
+    try {
+      breadcrumbs.clear();
+
+      if (GetPlatform.isAndroid) {
+        final granted = await AndroidStoragePermission.ensure();
+        storagePermissionDenied.value = !granted;
+      }
+
+      systemLocations.assignAll(await LocalFileBrowserService.discoverSystemLocations());
+      if (GetPlatform.isIOS) {
+        await _appendSavedIosFolderLocation();
+      }
+
+      final folder = LocalFileFolder(
+        name: (name != null && name.isNotEmpty)
+            ? name
+            : LocalFileBrowserService.displayNameForPath(path),
+        path: path,
+        icon: Icons.folder_rounded,
+      );
+
+      if (!systemLocations.any((l) => l.path == folder.path)) {
+        systemLocations.insert(0, folder);
+      }
+
+      _rootFolder = folder;
+      await _openPath(folder, resetBreadcrumbs: true);
+    } finally {
+      isLoading.value = false;
     }
   }
 

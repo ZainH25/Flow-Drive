@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../dashboard/model/picked_file_item.dart';
 import '../../transfer/view/widgets/file_preview.dart';
 import '../model/file_graph_node.dart';
-import '../model/picked_file_item.dart';
-import '../service/graph_file_system_service.dart';
+import '../service/file_map_filesystem_service.dart';
 
-class GraphMapConstants {
-  GraphMapConstants._();
+class FileMapConstants {
+  FileMapConstants._();
 
   static const maxChildren = 12;
   static const maxTotalFolders = 220;
@@ -20,8 +20,8 @@ class GraphMapConstants {
   static const topPadding = 40.0;
 }
 
-class GraphMapController extends GetxController {
-  final GraphFileSystemService fs = GraphFileSystemService();
+class FileMapController extends GetxController {
+  final FileMapFileSystemService fs = FileMapFileSystemService();
 
   final ready = false.obs;
   final error = RxnString();
@@ -33,9 +33,14 @@ class GraphMapController extends GetxController {
   final statusMsg = RxnString();
   final canvasSize = const Size(360, 640).obs;
 
+  /// Previous map roots after "Make root" — used by the root back button.
+  final rootHistory = <FileGraphNode>[].obs;
+
   final childrenCache = <String, List<FileGraphNode>>{};
   int _folderCount = 0;
   int _seedGeneration = 0;
+
+  bool get canStepBackRoot => rootHistory.isNotEmpty;
 
   @override
   void onInit() {
@@ -53,7 +58,7 @@ class GraphMapController extends GetxController {
         ready.value = true;
         return;
       }
-      await seedRoot(roots.first);
+      await seedRoot(roots.first, pushHistory: false);
     } catch (e) {
       error.value = e is Exception ? e.toString() : 'Failed to load file access.';
     } finally {
@@ -62,13 +67,13 @@ class GraphMapController extends GetxController {
   }
 
   Future<void> crawlTree(FileGraphNode node) async {
-    if (_folderCount >= GraphMapConstants.maxTotalFolders) return;
+    if (_folderCount >= FileMapConstants.maxTotalFolders) return;
     _folderCount += 1;
 
     List<FileGraphNode> kids = [];
     try {
       kids = (await fs.listChildren(node.id))
-          .take(GraphMapConstants.maxChildren)
+          .take(FileMapConstants.maxChildren)
           .toList();
     } catch (_) {
       kids = [];
@@ -127,26 +132,31 @@ class GraphMapController extends GetxController {
     }
     final widestLevel = perLevel.values.isEmpty ? 1 : perLevel.values.reduce((a, b) => a > b ? a : b);
 
-    final canvasW = screen.width > widestLevel * GraphMapConstants.siblingGap + 40
+    final canvasW = screen.width > widestLevel * FileMapConstants.siblingGap + 40
         ? screen.width
-        : widestLevel * GraphMapConstants.siblingGap + 40;
-    final canvasH = screen.height * 0.6 > GraphMapConstants.bottomMargin + maxLevel * GraphMapConstants.levelGap + GraphMapConstants.topPadding
+        : widestLevel * FileMapConstants.siblingGap + 40;
+    final canvasH = screen.height * 0.6 >
+            FileMapConstants.bottomMargin +
+                maxLevel * FileMapConstants.levelGap +
+                FileMapConstants.topPadding
         ? screen.height * 0.6
-        : GraphMapConstants.bottomMargin + maxLevel * GraphMapConstants.levelGap + GraphMapConstants.topPadding;
+        : FileMapConstants.bottomMargin +
+            maxLevel * FileMapConstants.levelGap +
+            FileMapConstants.topPadding;
 
     void assign(String id, double xMin, double xMax) {
       final n = map[id];
       if (n == null) return;
       n
         ..x = (xMin + xMax) / 2
-        ..y = canvasH - GraphMapConstants.bottomMargin - n.level * GraphMapConstants.levelGap;
+        ..y = canvasH - FileMapConstants.bottomMargin - n.level * FileMapConstants.levelGap;
 
       final kids = n.childIds;
       if (kids.isEmpty) return;
 
       final span = xMax - xMin;
-      final seg = span / kids.length < GraphMapConstants.siblingGap
-          ? GraphMapConstants.siblingGap
+      final seg = span / kids.length < FileMapConstants.siblingGap
+          ? FileMapConstants.siblingGap
           : span / kids.length;
       final totalWidth = seg * kids.length;
       final start = n.x - totalWidth / 2;
@@ -159,7 +169,27 @@ class GraphMapController extends GetxController {
     return Size(canvasW, canvasH);
   }
 
-  Future<void> seedRoot(FileGraphNode rootNode) async {
+  Future<void> seedRoot(
+    FileGraphNode rootNode, {
+    bool pushHistory = false,
+  }) async {
+    if (pushHistory) {
+      final currentId = rootId.value;
+      if (currentId != null) {
+        final current = nodes[currentId];
+        if (current != null) {
+          rootHistory.add(
+            FileGraphNode(
+              id: current.node.id,
+              name: current.node.name,
+              type: current.node.type,
+              path: current.node.path,
+            ),
+          );
+        }
+      }
+    }
+
     final myGen = ++_seedGeneration;
     nodes.clear();
     rootId.value = rootNode.id;
@@ -178,10 +208,11 @@ class GraphMapController extends GetxController {
     canvasSize.value = size;
     nodes.assignAll(full);
     mapping.value = false;
+    rootHistory.refresh();
 
-    if (_folderCount >= GraphMapConstants.maxTotalFolders) {
+    if (_folderCount >= FileMapConstants.maxTotalFolders) {
       statusMsg.value =
-          'Mapped the first ${GraphMapConstants.maxTotalFolders} folders — deeper ones load on first swipe there.';
+          'Mapped the first ${FileMapConstants.maxTotalFolders} folders — deeper ones load on first swipe there.';
     } else if (full.length <= 1) {
       statusMsg.value = GetPlatform.isIOS
           ? 'No files found in this folder. Tap the folder+ icon and pick files from the Files app.'
@@ -210,7 +241,7 @@ class GraphMapController extends GetxController {
     nodes.refresh();
 
     try {
-      final kids = (await fs.listChildren(id)).take(GraphMapConstants.maxChildren).toList();
+      final kids = (await fs.listChildren(id)).take(FileMapConstants.maxChildren).toList();
       childrenCache[id] = kids;
 
       final next = Map<String, GraphLayoutNode>.from(nodes);
@@ -263,10 +294,15 @@ class GraphMapController extends GetxController {
 
   void openFolder(String id) {
     final target = nodes[id];
+    if (target == null || !target.node.isFolder) return;
+
     focusedId.value = id;
     statusMsg.value = null;
-    if (target != null && !target.loaded) {
+
+    if (!target.loaded) {
       lazyLoadFolder(id);
+    } else {
+      focusedId.refresh();
     }
   }
 
@@ -275,6 +311,14 @@ class GraphMapController extends GetxController {
     if (currentId == null) return;
     final current = nodes[currentId];
     if (current?.parentId != null) openFolder(current!.parentId!);
+  }
+
+  /// Step back to the previous map root after one or more "Make root" actions.
+  Future<void> stepBackRoot() async {
+    if (rootHistory.isEmpty) return;
+    final previous = rootHistory.removeLast();
+    rootHistory.refresh();
+    await seedRoot(previous, pushHistory: false);
   }
 
   List<({String id, String name})> breadcrumbChain() {
@@ -294,12 +338,83 @@ class GraphMapController extends GetxController {
     error.value = null;
     try {
       final root = await fs.pickAndGrantRoot();
-      if (root != null) await seedRoot(root);
+      if (root != null) {
+        rootHistory.clear();
+        rootHistory.refresh();
+        await seedRoot(root, pushHistory: false);
+      }
     } on MissingPluginException {
       error.value =
           'Folder picker is not ready. Stop the app fully and run again (full restart, not hot reload).';
     } catch (e) {
       error.value = e is Exception ? e.toString() : 'Could not grant folder access.';
+    }
+  }
+
+  Future<void> makeFolderRoot(FileGraphNode folderNode) async {
+    await seedRoot(folderNode, pushHistory: true);
+  }
+
+  /// Just Open — reveal this path in Finder / system file manager.
+  /// The File Map is left unchanged.
+  Future<void> openFolderInLocalStorage(FileGraphNode folderNode) async {
+    error.value = null;
+    try {
+      await fs.revealInSystemFileManager(folderNode.path);
+      statusMsg.value = 'Opened “${folderNode.name}” in local storage.';
+    } catch (e) {
+      Get.snackbar(
+        'Cannot open folder',
+        e is Exception ? e.toString() : 'Could not open that folder in Files.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  /// Drag-release on a folder:
+  /// - Just open → Finder / local storage at that path (map unchanged)
+  /// - Make root → remount the map from that folder
+  Future<void> offerMakeRootOrNavigate(String id, BuildContext context) async {
+    final target = nodes[id];
+    if (target == null || !target.node.isFolder || target.isRoot) return;
+
+    final folderNode = FileGraphNode(
+      id: target.node.id,
+      name: target.node.name,
+      type: target.node.type,
+      path: target.node.path,
+    );
+
+    final choice = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text('“${folderNode.name}”'),
+          content: const Text(
+            'Just open: show this folder in Files / local storage (map stays as-is).\n\n'
+            'Make root: remount the File Map from this folder.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('open'),
+              child: const Text('Just open'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop('root'),
+              child: const Text('Make root'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!context.mounted) return;
+
+    if (choice == 'open') {
+      await openFolderInLocalStorage(folderNode);
+    } else if (choice == 'root') {
+      await makeFolderRoot(folderNode);
     }
   }
 
@@ -320,16 +435,14 @@ class GraphMapController extends GetxController {
     await FilePreview.show(context, picked);
   }
 
+  /// Single-tap on a folder navigates into it. Files open via drag-release or double-tap.
   void commitSelection(String id, BuildContext context) {
     final target = nodes[id];
     if (target == null) return;
 
     if (target.node.isFolder) {
       openFolder(id);
-      return;
     }
-
-    openFile(id, context);
   }
 
   String? _extension(String name) {

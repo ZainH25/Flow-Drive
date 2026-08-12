@@ -7,7 +7,7 @@ import 'tabs/files_tab.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'tabs/transfers_tab.dart';
-import 'widgets/file_map_launcher.dart';
+import '../../file_map/view/widgets/file_map_launcher.dart';
 
 class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});

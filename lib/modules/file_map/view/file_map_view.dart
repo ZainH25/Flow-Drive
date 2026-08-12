@@ -6,12 +6,12 @@ import 'package:get/get.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
-import '../controller/graph_map_controller.dart';
+import '../controller/file_map_controller.dart';
 import '../model/file_graph_node.dart';
 
 /// Light graph map for fast file retrieval — opens files, never sends.
-class FileMapScreen extends GetView<GraphMapController> {
-  const FileMapScreen({super.key});
+class FileMapView extends GetView<FileMapController> {
+  const FileMapView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +19,10 @@ class FileMapScreen extends GetView<GraphMapController> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (controller.canStepBackRoot) {
+          controller.stepBackRoot();
+          return;
+        }
         final root = controller.rootId.value;
         final focused = controller.focusedId.value;
         if (root != null && focused != null && focused != root) {
@@ -33,16 +37,33 @@ class FileMapScreen extends GetView<GraphMapController> {
           backgroundColor: AppColors.surface,
           elevation: 0,
           scrolledUnderElevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.close_rounded),
-            onPressed: Get.back,
-          ),
+          leading: Obx(() {
+            if (controller.rootHistory.isNotEmpty) {
+              return IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                tooltip: 'Previous root',
+                onPressed: controller.stepBackRoot,
+              );
+            }
+            return IconButton(
+              icon: const Icon(Icons.close_rounded),
+              onPressed: Get.back,
+            );
+          }),
           title: Obx(() {
             final chain = controller.breadcrumbChain();
             final title = chain.isEmpty ? 'File Map' : chain.last.name;
             return Text(title);
           }),
           actions: [
+            Obx(() {
+              if (controller.rootHistory.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'Close',
+                onPressed: Get.back,
+              );
+            }),
             TextButton.icon(
               onPressed: controller.grantAccess,
               icon: const Icon(Icons.folder_open_rounded, size: 20),
@@ -169,7 +190,7 @@ class FileMapScreen extends GetView<GraphMapController> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Swipe or tap a node to open it. Folders focus · files open.',
+                        'Drag → release on a folder: Just open (Finder, map unchanged) or Make root. Back returns to the previous root.',
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: Responsive.sp(12),
@@ -230,7 +251,7 @@ class FileMapScreen extends GetView<GraphMapController> {
 class _GraphMapView extends StatefulWidget {
   const _GraphMapView({required this.controller});
 
-  final GraphMapController controller;
+  final FileMapController controller;
 
   @override
   State<_GraphMapView> createState() => _GraphMapViewState();
@@ -241,6 +262,13 @@ class _GraphMapViewState extends State<_GraphMapView> {
   String? _activeId;
   final List<String> _trail = [];
   double _trailOpacity = 0;
+
+  String? _doubleTapCandidateId;
+  DateTime? _doubleTapAt;
+  Offset? _doubleTapDownPos;
+  bool _dragActive = false;
+
+  static const _doubleTapWindow = Duration(milliseconds: 350);
 
   @override
   void dispose() {
@@ -282,7 +310,7 @@ class _GraphMapViewState extends State<_GraphMapView> {
     var bestDist = double.infinity;
 
     for (final n in widget.controller.nodes.values) {
-      final radius = n.isRoot ? GraphMapConstants.rootRadius : GraphMapConstants.nodeRadius;
+      final radius = n.isRoot ? FileMapConstants.rootRadius : FileMapConstants.nodeRadius;
       final dx = n.x - local.dx;
       final dy = n.y - local.dy;
       final dist = math.sqrt(dx * dx + dy * dy);
@@ -294,6 +322,10 @@ class _GraphMapViewState extends State<_GraphMapView> {
     return best;
   }
 
+  bool _isFolder(String id) => widget.controller.nodes[id]?.node.isFolder == true;
+
+  bool _isFile(String id) => widget.controller.nodes[id]?.node.isFile == true;
+
   void _setActive(String? id, {bool haptic = false}) {
     if (haptic && id != null && id != _activeId) {
       HapticFeedback.selectionClick();
@@ -301,6 +333,7 @@ class _GraphMapViewState extends State<_GraphMapView> {
     setState(() => _activeId = id);
   }
 
+  /// Build / extend the highlighted path as the finger moves across nodes.
   void _updateTrail(String? hit) {
     if (hit == null) return;
     if (_trail.isEmpty) {
@@ -310,7 +343,7 @@ class _GraphMapViewState extends State<_GraphMapView> {
       });
       return;
     }
-    if (hit == _activeId) return;
+    if (hit == _trail.last) return;
 
     final prior = _trail.indexOf(hit);
     setState(() {
@@ -324,9 +357,7 @@ class _GraphMapViewState extends State<_GraphMapView> {
     HapticFeedback.selectionClick();
   }
 
-  void _commitSelection(String id) {
-    HapticFeedback.mediumImpact();
-    widget.controller.commitSelection(id, context);
+  void _fadeTrailSoon() {
     Future<void>.delayed(const Duration(milliseconds: 700), () {
       if (!mounted) return;
       setState(() {
@@ -335,6 +366,83 @@ class _GraphMapViewState extends State<_GraphMapView> {
         _activeId = null;
       });
     });
+  }
+
+  Future<void> _onPanEnd() async {
+    final id = _activeId;
+    _setActive(null);
+    _dragActive = false;
+
+    if (id == null) {
+      _fadeTrailSoon();
+      return;
+    }
+
+    HapticFeedback.mediumImpact();
+
+    if (_isFile(id)) {
+      // Drag → release on any file opens it.
+      await widget.controller.openFile(id, context);
+      if (!mounted) return;
+      _fadeTrailSoon();
+      return;
+    }
+
+    if (_isFolder(id)) {
+      final isRoot = id == widget.controller.rootId.value;
+      if (isRoot) {
+        widget.controller.openFolder(id);
+      } else {
+        // Drag → release on a folder: make root or just open in place.
+        await widget.controller.offerMakeRootOrNavigate(id, context);
+      }
+      if (!mounted) return;
+      _scrollToFocused();
+      _fadeTrailSoon();
+      return;
+    }
+
+    _fadeTrailSoon();
+  }
+
+  void _handleTap(String id) {
+    // Ignore tap that follows a drag gesture.
+    if (_dragActive) return;
+
+    if (_isFile(id)) {
+      final now = DateTime.now();
+      final isDouble = _doubleTapCandidateId == id &&
+          _doubleTapAt != null &&
+          now.difference(_doubleTapAt!) <= _doubleTapWindow;
+
+      if (isDouble) {
+        _doubleTapCandidateId = null;
+        _doubleTapAt = null;
+        HapticFeedback.mediumImpact();
+        widget.controller.openFile(id, context);
+        _fadeTrailSoon();
+        return;
+      }
+
+      _doubleTapCandidateId = id;
+      _doubleTapAt = now;
+      setState(() {
+        _trail
+          ..clear()
+          ..add(id);
+        _trailOpacity = 1;
+        _activeId = id;
+      });
+      _fadeTrailSoon();
+      return;
+    }
+
+    // Folder: single tap navigates (no dialog — dialog is drag-release only).
+    if (_isFolder(id)) {
+      HapticFeedback.mediumImpact();
+      widget.controller.openFolder(id);
+      _fadeTrailSoon();
+    }
   }
 
   @override
@@ -355,29 +463,34 @@ class _GraphMapViewState extends State<_GraphMapView> {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: (d) {
+              _dragActive = true;
               final hit = _hitTest(d.localPosition);
-              _setActive(hit, haptic: hit != null);
               setState(() {
                 _trail
                   ..clear()
                   ..addAll(hit != null ? [hit] : []);
-                _trailOpacity = 1;
+                _trailOpacity = hit != null ? 1 : 0;
               });
+              _setActive(hit, haptic: hit != null);
             },
             onPanUpdate: (d) {
               final hit = _hitTest(d.localPosition);
-              if (hit == null) return;
-              _setActive(hit);
               _updateTrail(hit);
+              if (hit != null) _setActive(hit);
             },
-            onPanEnd: (_) {
-              final id = _activeId;
-              _setActive(null);
-              if (id != null) _commitSelection(id);
+            onPanEnd: (_) => _onPanEnd(),
+            onPanCancel: () {
+              _dragActive = false;
+              _fadeTrailSoon();
+            },
+            onTapDown: (d) {
+              _doubleTapDownPos = d.localPosition;
             },
             onTapUp: (d) {
-              final hit = _hitTest(d.localPosition);
-              if (hit != null) _commitSelection(hit);
+              final pos = _doubleTapDownPos ?? d.localPosition;
+              _doubleTapDownPos = null;
+              final hit = _hitTest(pos);
+              if (hit != null) _handleTap(hit);
             },
             child: Stack(
               clipBehavior: Clip.none,
@@ -386,7 +499,7 @@ class _GraphMapViewState extends State<_GraphMapView> {
                   size: canvasSize,
                   painter: _GraphEdgesPainter(
                     nodes: nodes,
-                    trail: _trail,
+                    trail: List<String>.from(_trail),
                     trailOpacity: _trailOpacity,
                   ),
                 ),
@@ -422,7 +535,7 @@ class _GraphNodeWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRoot = node.isRoot;
-    final radius = isRoot ? GraphMapConstants.rootRadius + 2 : GraphMapConstants.nodeRadius + 2;
+    final radius = isRoot ? FileMapConstants.rootRadius + 2 : FileMapConstants.nodeRadius + 2;
     final scale = isActive ? 1.35 : inTrail ? 1.12 : 1.0;
 
     final Color bg;
@@ -593,31 +706,35 @@ class _GraphEdgesPainter extends CustomPainter {
       if (parent == null) continue;
 
       final lit = _edgeLit(parent.node.id, n.id);
-      edgePaint.color = lit ? AppColors.brandIndigo : AppColors.border;
-      edgePaint.strokeWidth = lit ? 2.2 : 1.2;
+      edgePaint.color = lit
+          ? AppColors.brandIndigo.withValues(alpha: 0.95 * trailOpacity.clamp(0.35, 1))
+          : AppColors.border;
+      edgePaint.strokeWidth = lit ? 2.6 : 1.2;
       canvas.drawLine(Offset(parent.x, parent.y), Offset(n.x, n.y), edgePaint);
     }
 
     if (trail.length < 2 || trailOpacity <= 0) return;
 
     final trailPaint = Paint()
-      ..color = AppColors.brandIndigo.withValues(alpha: trailOpacity * 0.85)
-      ..strokeWidth = 2.8
+      ..color = AppColors.brandIndigo.withValues(alpha: trailOpacity * 0.9)
+      ..strokeWidth = 3.2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     final path = Path();
+    var started = false;
     for (var i = 0; i < trail.length; i++) {
       final p = nodes[trail[i]];
       if (p == null) continue;
-      if (i == 0) {
+      if (!started) {
         path.moveTo(p.x, p.y);
+        started = true;
       } else {
         path.lineTo(p.x, p.y);
       }
     }
-    canvas.drawPath(path, trailPaint);
+    if (started) canvas.drawPath(path, trailPaint);
   }
 
   bool _edgeLit(String a, String b) {
