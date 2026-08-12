@@ -17,6 +17,7 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		AD6BD42EBAE125E584774667 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B44755EFDDE26C5AE7685697 /* Pods_RunnerTests.framework */; };
 		F0D1A0012A0000010000001 /* DeviceStorageChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D1A0022A0000010000001 /* DeviceStorageChannel.swift */; };
+		F0D1A0032A0000010000002 /* IosFolderAccessChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D1A0042A0000010000002 /* IosFolderAccessChannel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +68,7 @@
 		EAF7230522D180F92AF55771 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		EC0351CA1FB0E35DE112F5AE /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		F0D1A0022A0000010000001 /* DeviceStorageChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStorageChannel.swift; sourceTree = "<group>"; };
+		F0D1A0042A0000010000002 /* IosFolderAccessChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosFolderAccessChannel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +156,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				F0D1A0022A0000010000001 /* DeviceStorageChannel.swift */,
+				F0D1A0042A0000010000002 /* IosFolderAccessChannel.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -400,6 +403,7 @@
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				F0D1A0012A0000010000001 /* DeviceStorageChannel.swift in Sources */,
+				F0D1A0032A0000010000002 /* IosFolderAccessChannel.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

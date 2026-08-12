@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../transfer/view/widgets/file_preview.dart';
@@ -9,7 +10,7 @@ import '../service/graph_file_system_service.dart';
 class GraphMapConstants {
   GraphMapConstants._();
 
-  static const maxChildren = 3;
+  static const maxChildren = 12;
   static const maxTotalFolders = 220;
   static const nodeRadius = 15.0;
   static const rootRadius = 15.0;
@@ -181,6 +182,10 @@ class GraphMapController extends GetxController {
     if (_folderCount >= GraphMapConstants.maxTotalFolders) {
       statusMsg.value =
           'Mapped the first ${GraphMapConstants.maxTotalFolders} folders — deeper ones load on first swipe there.';
+    } else if (full.length <= 1) {
+      statusMsg.value = GetPlatform.isIOS
+          ? 'No files found in this folder. Tap the folder+ icon and pick files from the Files app.'
+          : 'No files found in this folder.';
     }
   }
 
@@ -290,6 +295,9 @@ class GraphMapController extends GetxController {
     try {
       final root = await fs.pickAndGrantRoot();
       if (root != null) await seedRoot(root);
+    } on MissingPluginException {
+      error.value =
+          'Folder picker is not ready. Stop the app fully and run again (full restart, not hot reload).';
     } catch (e) {
       error.value = e is Exception ? e.toString() : 'Could not grant folder access.';
     }

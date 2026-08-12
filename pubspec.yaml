@@ -33,6 +33,7 @@ dependencies:
   # 13.x pulls permission_handler_android 14 (AGP 9 / Kotlin 2.3) which breaks this project.
   permission_handler: 12.0.1
   device_info_plus: ^12.4.0
+  photo_manager: ^3.12.0
 
 dev_dependencies:
   flutter_test:

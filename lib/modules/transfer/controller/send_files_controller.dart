@@ -1,10 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../../core/routing/app_routes.dart';
+import '../../../core/services/local_storage_service.dart';
 import '../../dashboard/model/picked_file_item.dart';
 import '../../dashboard/service/quick_actions_service.dart';
-import '../../../core/routing/app_routes.dart';
 import '../service/android_storage_permission.dart';
+import '../service/ios_folder_picker.dart';
+import '../service/ios_media_browser_service.dart';
 import '../service/local_file_browser_service.dart';
 
 class SendFilesController extends GetxController {
@@ -24,10 +30,6 @@ class SendFilesController extends GetxController {
   bool get isAtRoot => breadcrumbs.isEmpty;
 
   List<PickedFileItem> get visibleFiles {
-    if (GetPlatform.isIOS) {
-      return pickedExtras.toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-    }
     if (isAtRoot && pickedExtras.isNotEmpty) {
       final merged = <String, PickedFileItem>{};
       for (final file in [...pickedExtras, ...currentFiles]) {
@@ -36,7 +38,7 @@ class SendFilesController extends GetxController {
       return merged.values.toList()
         ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
     }
-    return currentFiles;
+    return currentFiles.toList();
   }
 
   @override
@@ -83,22 +85,13 @@ class SendFilesController extends GetxController {
     }
   }
 
+  /// Same path on every platform: discover locations → open root → show
+  /// folders/files on screen (no auto picker).
   Future<void> loadRoot() async {
     isLoading.value = true;
     storagePermissionDenied.value = false;
     try {
       breadcrumbs.clear();
-
-      // iOS: Files app content is only available via the system picker (sandbox).
-      // Do not surface app-container folders (Documents / Library / etc.).
-      if (GetPlatform.isIOS) {
-        systemLocations.clear();
-        folders.clear();
-        currentFiles.clear();
-        currentFolderName.value = 'Files';
-        _rootFolder = null;
-        return;
-      }
 
       if (GetPlatform.isAndroid) {
         final granted = await AndroidStoragePermission.ensure();
@@ -107,18 +100,87 @@ class SendFilesController extends GetxController {
 
       systemLocations.assignAll(await LocalFileBrowserService.discoverSystemLocations());
 
+      // Optional: last Files-app import as an extra Location chip (iOS only).
+      if (GetPlatform.isIOS) {
+        await _appendSavedIosFolderLocation();
+      }
+
       final path = await LocalFileBrowserService.defaultBrowsePath();
       if (path == null) return;
 
       _rootFolder = LocalFileFolder(
-        name: LocalFileBrowserService.displayNameForPath(path),
+        name: LocalFileBrowserService.rootDisplayName(path),
         path: path,
         icon: Icons.folder_rounded,
       );
-
       await _openPath(_rootFolder!, resetBreadcrumbs: true);
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> _appendSavedIosFolderLocation() async {
+    if (!Get.isRegistered<LocalStorageService>()) return;
+    final storage = Get.find<LocalStorageService>();
+    final savedPath = storage.iosSendFolderPath;
+    final savedName = storage.iosSendFolderName;
+    if (savedPath == null || savedPath.isEmpty) return;
+    if (!await Directory(savedPath).exists()) return;
+    if (systemLocations.any((l) => l.path == savedPath)) return;
+
+    systemLocations.add(
+      LocalFileFolder(
+        name: (savedName != null && savedName.isNotEmpty) ? savedName : 'Imported',
+        path: savedPath,
+        icon: Icons.folder_shared_rounded,
+      ),
+    );
+  }
+
+  /// Optional: import another folder from the Files app into Locations.
+  Future<void> pickFolderToBrowse() async {
+    if (isPicking.value) return;
+    isPicking.value = true;
+    try {
+      final picked = await IosFolderPicker.pickFolder();
+      if (picked == null) return;
+
+      isLoading.value = true;
+      final folder = LocalFileFolder(
+        name: picked.name,
+        path: picked.path,
+        icon: Icons.folder_shared_rounded,
+      );
+
+      if (!systemLocations.any((l) => l.path == folder.path)) {
+        systemLocations.add(folder);
+      }
+
+      if (Get.isRegistered<LocalStorageService>()) {
+        await Get.find<LocalStorageService>().setIosSendFolder(
+          path: picked.path,
+          name: picked.name,
+        );
+      }
+
+      breadcrumbs.clear();
+      _rootFolder = folder;
+      await _openPath(folder, resetBreadcrumbs: true);
+    } on MissingPluginException {
+      Get.snackbar(
+        'Folder picker unavailable',
+        'Fully stop the app and run again (not hot reload).',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Cannot open folder',
+        e is Exception ? e.toString() : 'Could not open that folder.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+      isPicking.value = false;
     }
   }
 
@@ -186,10 +248,14 @@ class SendFilesController extends GetxController {
         await AndroidStoragePermission.ensure();
       }
       final picked = await QuickActionsService.pickFilesToSend();
+      if (picked.isEmpty) return;
+
       for (final file in picked) {
         _addPickedExtra(file);
         _selectFile(file);
       }
+      pickedExtras.refresh();
+      selectedFiles.refresh();
     } on FilePickerException catch (e) {
       Get.snackbar(
         'Cannot open files',
@@ -211,6 +277,28 @@ class SendFilesController extends GetxController {
       return;
     }
 
-    Get.toNamed(AppRoutes.deviceRadar, arguments: selectedFiles.toList());
+    _continueToDeviceRadar();
+  }
+
+  Future<void> _continueToDeviceRadar() async {
+    isLoading.value = true;
+    try {
+      final resolved = GetPlatform.isIOS
+          ? await IosMediaBrowserService.resolveAll(selectedFiles.toList())
+          : selectedFiles.toList();
+
+      if (resolved.isEmpty) {
+        Get.snackbar(
+          'Cannot send files',
+          'Could not prepare the selected files. Try again.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+
+      Get.toNamed(AppRoutes.deviceRadar, arguments: resolved);
+    } finally {
+      isLoading.value = false;
+    }
   }
 }

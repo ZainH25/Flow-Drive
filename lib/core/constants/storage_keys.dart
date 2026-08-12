@@ -9,4 +9,8 @@ class StorageKeys {
 
   static const String rememberMe = 'remember_me';
   static const String rememberedEmail = 'remembered_email';
+
+  /// Last iOS folder mirrored for Send Files browsing.
+  static const String iosSendFolderPath = 'ios_send_folder_path';
+  static const String iosSendFolderName = 'ios_send_folder_name';
 }

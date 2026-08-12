@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 
 import '../../transfer/service/android_storage_permission.dart';
+import '../../transfer/service/ios_folder_picker.dart';
 import '../../transfer/service/local_file_browser_service.dart';
 import '../model/file_graph_node.dart';
 
@@ -13,22 +14,22 @@ class GraphFileSystemService {
     }
   }
 
-  Future<List<FileGraphNode>> getRoots() async {
-    final path = await LocalFileBrowserService.defaultBrowsePath();
-    if (path == null) return [];
-
-    return [
-      FileGraphNode(
-        id: path,
-        name: LocalFileBrowserService.displayNameForPath(path),
-        type: GraphNodeType.folder,
-        path: path,
-      ),
-    ];
-  }
+  /// No auto-root — every platform starts with "Choose folder" so the user
+  /// picks what to map (Android / iOS / Windows / macOS).
+  Future<List<FileGraphNode>> getRoots() async => [];
 
   Future<FileGraphNode?> pickAndGrantRoot() async {
-    final path = await FilePicker.getDirectoryPath();
+    if (Platform.isIOS) {
+      return _pickIosFolder();
+    }
+
+    if (Platform.isAndroid) {
+      await AndroidStoragePermission.ensure();
+    }
+
+    final path = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Choose folder to map',
+    );
     if (path == null) return null;
 
     return FileGraphNode(
@@ -36,6 +37,17 @@ class GraphFileSystemService {
       name: LocalFileBrowserService.displayNameForPath(path),
       type: GraphNodeType.folder,
       path: path,
+    );
+  }
+
+  Future<FileGraphNode?> _pickIosFolder() async {
+    final picked = await IosFolderPicker.pickFolder();
+    if (picked == null) return null;
+    return FileGraphNode(
+      id: picked.path,
+      name: picked.name,
+      type: GraphNodeType.folder,
+      path: picked.path,
     );
   }
 

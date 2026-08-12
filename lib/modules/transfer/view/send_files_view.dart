@@ -3,11 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
 import '../../dashboard/model/picked_file_item.dart';
 import '../controller/send_files_controller.dart';
+import '../service/ios_media_browser_service.dart';
 import '../service/local_file_browser_service.dart';
 import 'widgets/file_preview.dart';
 
@@ -49,7 +51,7 @@ class SendFilesView extends GetView<SendFilesController> {
                 return _SelectedFilesBar(controller: controller);
               }),
               Obx(() {
-                if (Platform.isIOS || controller.breadcrumbs.isEmpty) {
+                if (controller.breadcrumbs.isEmpty) {
                   return const SizedBox.shrink();
                 }
                 return _BreadcrumbBar(controller: controller);
@@ -60,6 +62,7 @@ class SendFilesView extends GetView<SendFilesController> {
                   selectedCount: controller.selectedFiles.length,
                   hasSelection: controller.selectedFiles.isNotEmpty,
                   isPicking: controller.isPicking.value,
+                  browseLabel: 'Add Files',
                   onBrowse: controller.pickFilesFromDevice,
                   onContinue: controller.continueToDeviceRadar,
                 );
@@ -167,17 +170,13 @@ class _BrowserBody extends StatelessWidget {
         return const Center(child: CircularProgressIndicator());
       }
 
-      if (Platform.isIOS) {
-        return _IosFilesBody(controller: controller);
-      }
-
-      return _DesktopBrowserBody(controller: controller);
+      return _FolderBrowserBody(controller: controller);
     });
   }
 }
 
-class _DesktopBrowserBody extends StatelessWidget {
-  const _DesktopBrowserBody({required this.controller});
+class _FolderBrowserBody extends StatelessWidget {
+  const _FolderBrowserBody({required this.controller});
 
   final SendFilesController controller;
 
@@ -197,134 +196,140 @@ class _DesktopBrowserBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final folders = controller.folders;
-    final files = controller.visibleFiles;
-    final isAtRoot = controller.isAtRoot;
+    return Obx(() {
+      final folders = controller.folders.toList();
+      final files = controller.visibleFiles;
+      final isAtRoot = controller.isAtRoot;
 
-    return CustomScrollView(
-      key: ValueKey(controller.currentFolderName.value),
-      slivers: [
-        SliverPadding(
-          padding: Responsive.pagePadding.copyWith(bottom: 0),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              if (Platform.isAndroid && controller.storagePermissionDenied.value)
-                _AndroidPermissionBanner(controller: controller),
-              if (isAtRoot) ...[
-                _PlatformInfoBanner(),
-                const SizedBox(height: 12),
-                _ChooseMoreFilesButton(controller: controller),
-                const SizedBox(height: 20),
-              ],
-              if (isAtRoot && controller.systemLocations.length > 1) ...[
-                Text(
-                  'Locations',
-                  style: TextStyle(
-                    fontSize: Responsive.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _LocationChips(controller: controller),
-                const SizedBox(height: 20),
-              ],
-              if (folders.isNotEmpty) ...[
-                Text(
-                  'Folders',
-                  style: TextStyle(
-                    fontSize: Responsive.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ]),
-          ),
-        ),
-        if (folders.isNotEmpty)
+      return CustomScrollView(
+        key: ValueKey('${controller.currentFolderName.value}-${files.length}-${folders.length}'),
+        slivers: [
           SliverPadding(
-            padding: Responsive.pagePadding.copyWith(top: 0, bottom: 0),
-            sliver: SliverGrid(
-              gridDelegate: _folderGrid,
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _FolderTile(
-                  folder: folders[index],
-                  onTap: () => controller.openFolder(folders[index]),
-                ),
-                childCount: folders.length,
-              ),
-            ),
-          ),
-        if (folders.isNotEmpty)
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-        if (files.isNotEmpty)
-          SliverPadding(
-            padding: Responsive.pagePadding.copyWith(top: 0, bottom: 0),
+            padding: Responsive.pagePadding.copyWith(bottom: 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                Text(
-                  'Files',
-                  style: TextStyle(
-                    fontSize: Responsive.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                if (Platform.isAndroid && controller.storagePermissionDenied.value)
+                  _AndroidPermissionBanner(controller: controller),
+                if (isAtRoot) ...[
+                  _PlatformInfoBanner(),
+                  const SizedBox(height: 12),
+                  _ChooseMoreFilesButton(controller: controller),
+                  if (Platform.isIOS) ...[
+                    const SizedBox(height: 10),
+                    _ImportFolderButton(controller: controller),
+                  ],
+                  const SizedBox(height: 20),
+                ],
+                if (isAtRoot && controller.systemLocations.isNotEmpty) ...[
+                  Text(
+                    'Locations',
+                    style: TextStyle(
+                      fontSize: Responsive.sp(16),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Tap to select · Long press to preview',
-                  style: TextStyle(
-                    fontSize: Responsive.sp(12),
-                    color: AppColors.textSecondary,
+                  const SizedBox(height: 12),
+                  _LocationChips(controller: controller),
+                  const SizedBox(height: 20),
+                ],
+                if (folders.isNotEmpty) ...[
+                  Text(
+                    'Folders',
+                    style: TextStyle(
+                      fontSize: Responsive.sp(16),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
               ]),
             ),
           ),
-        if (files.isNotEmpty)
-          SliverPadding(
-            padding: Responsive.pagePadding.copyWith(top: 0, bottom: 16),
-            sliver: SliverGrid(
-              gridDelegate: _fileGrid,
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final file = files[index];
-                  return _FileGridTile(
-                    key: ValueKey(file.path ?? file.name),
-                    file: file,
-                    onTap: () => controller.toggleSelection(file),
-                    onLongPress: () => FilePreview.show(context, file),
-                  );
-                },
-                childCount: files.length,
+          if (folders.isNotEmpty)
+            SliverPadding(
+              padding: Responsive.pagePadding.copyWith(top: 0, bottom: 0),
+              sliver: SliverGrid(
+                gridDelegate: _folderGrid,
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _FolderTile(
+                    folder: folders[index],
+                    onTap: () => controller.openFolder(folders[index]),
+                  ),
+                  childCount: folders.length,
+                ),
               ),
             ),
-          ),
-        if (files.isEmpty && folders.isEmpty)
-          SliverPadding(
-            padding: Responsive.pagePadding,
-            sliver: SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Center(
-                  child: Text(
-                    'No files found in this location.',
-                    textAlign: TextAlign.center,
+          if (folders.isNotEmpty)
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          if (files.isNotEmpty)
+            SliverPadding(
+              padding: Responsive.pagePadding.copyWith(top: 0, bottom: 0),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  Text(
+                    'Files',
                     style: TextStyle(
+                      fontSize: Responsive.sp(16),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Tap to select · Long press to preview',
+                    style: TextStyle(
+                      fontSize: Responsive.sp(12),
                       color: AppColors.textSecondary,
-                      fontSize: Responsive.sp(14),
-                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ]),
+              ),
+            ),
+          if (files.isNotEmpty)
+            SliverPadding(
+              padding: Responsive.pagePadding.copyWith(top: 0, bottom: 16),
+              sliver: SliverGrid(
+                gridDelegate: _fileGrid,
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final file = files[index];
+                    return _FileGridTile(
+                      key: ValueKey(file.path ?? file.name),
+                      file: file,
+                      onTap: () => controller.toggleSelection(file),
+                      onLongPress: () => FilePreview.show(context, file),
+                    );
+                  },
+                  childCount: files.length,
+                ),
+              ),
+            ),
+          if (files.isEmpty && folders.isEmpty)
+            SliverPadding(
+              padding: Responsive.pagePadding,
+              sliver: SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Center(
+                    child: Text(
+                      'No files found in this location.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: Responsive.sp(14),
+                        height: 1.4,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-      ],
-    );
+        ],
+      );
+    });
   }
 }
 
@@ -407,9 +412,11 @@ class _PlatformInfoBanner extends StatelessWidget {
           Icon(
             Platform.isAndroid
                 ? Icons.folder_copy_rounded
-                : Platform.isMacOS
-                    ? Icons.laptop_mac_rounded
-                    : Icons.computer_rounded,
+                : Platform.isIOS
+                    ? Icons.phone_iphone_rounded
+                    : Platform.isMacOS
+                        ? Icons.laptop_mac_rounded
+                        : Icons.computer_rounded,
             color: AppColors.brandIndigo,
             size: 24,
           ),
@@ -429,11 +436,13 @@ class _PlatformInfoBanner extends StatelessWidget {
                 Text(
                   Platform.isAndroid
                       ? 'Browse Internal Storage folders to send any file type (images, PDF, video, and more).'
-                      : Platform.isMacOS
-                          ? 'Browsing your Mac folders and files directly from the system.'
-                          : Platform.isWindows
-                              ? 'Browsing your PC folders and files directly from the system.'
-                              : 'Browse folders and files on this device',
+                      : Platform.isIOS
+                          ? 'Browse On My iPhone folders to send any file type (images, PDF, video, and more).'
+                          : Platform.isMacOS
+                              ? 'Browsing your Mac folders and files directly from the system.'
+                              : Platform.isWindows
+                                  ? 'Browsing your PC folders and files directly from the system.'
+                                  : 'Browse folders and files on this device',
                   style: TextStyle(
                     fontSize: Responsive.sp(12),
                     color: AppColors.textSecondary,
@@ -482,6 +491,35 @@ class _ChooseMoreFilesButton extends StatelessWidget {
   }
 }
 
+class _ImportFolderButton extends StatelessWidget {
+  const _ImportFolderButton({required this.controller});
+
+  final SendFilesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: controller.isPicking.value ? null : controller.pickFolderToBrowse,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.brandIndigo,
+            side: const BorderSide(color: AppColors.brandIndigo),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          icon: const Icon(Icons.create_new_folder_outlined),
+          label: const Text(
+            'Import Folder from Files',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
+    });
+  }
+}
+
 class _LocationChips extends StatelessWidget {
   const _LocationChips({required this.controller});
 
@@ -511,162 +549,6 @@ class _LocationChips extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-/// iPhone-only: open the system Files app picker and list chosen files.
-class _IosFilesBody extends StatelessWidget {
-  const _IosFilesBody({required this.controller});
-
-  final SendFilesController controller;
-
-  static const _fileGrid = SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: 2,
-    mainAxisSpacing: 10,
-    crossAxisSpacing: 10,
-    childAspectRatio: 0.85,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final files = controller.visibleFiles;
-
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: Responsive.pagePadding.copyWith(bottom: 0),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.infoBannerFill,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.infoBannerBorder),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.phone_iphone_rounded,
-                      color: AppColors.brandIndigo,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Files',
-                            style: TextStyle(
-                              fontSize: Responsive.sp(15),
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Browse On My iPhone, iCloud Drive, and other locations from the Files app.',
-                            style: TextStyle(
-                              fontSize: Responsive.sp(12),
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Obx(() {
-                return SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: controller.isPicking.value ? null : controller.pickFilesFromDevice,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.brandIndigo,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    icon: controller.isPicking.value
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.folder_open_rounded, color: Colors.white),
-                    label: const Text(
-                      'Browse Files App',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 20),
-              if (files.isNotEmpty) ...[
-                Text(
-                  'Selected from Files',
-                  style: TextStyle(
-                    fontSize: Responsive.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Tap to select · Long press to preview',
-                  style: TextStyle(
-                    fontSize: Responsive.sp(12),
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ]),
-          ),
-        ),
-        if (files.isNotEmpty)
-          SliverPadding(
-            padding: Responsive.pagePadding.copyWith(top: 0, bottom: 16),
-            sliver: SliverGrid(
-              gridDelegate: _fileGrid,
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final file = files[index];
-                  return _FileGridTile(
-                    key: ValueKey(file.path ?? file.name),
-                    file: file,
-                    onTap: () => controller.toggleSelection(file),
-                    onLongPress: () => FilePreview.show(context, file),
-                  );
-                },
-                childCount: files.length,
-              ),
-            ),
-          ),
-        if (files.isEmpty)
-          SliverPadding(
-            padding: Responsive.pagePadding,
-            sliver: SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 32),
-                child: Center(
-                  child: Text(
-                    'No files yet.\nTap Browse Files App to pick any file type.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: Responsive.sp(14),
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -737,7 +619,10 @@ class _FileGridTile extends GetView<SendFilesController> {
   @override
   Widget build(BuildContext context) {
     final isImage = LocalFileBrowserService.isImage(file);
+    final isVideo = LocalFileBrowserService.isVideo(file);
     final path = file.path;
+    final isAsset = IosMediaPaths.isAssetRef(path);
+    final assetId = path == null ? null : IosMediaPaths.assetIdFromPath(path);
 
     return Material(
       color: AppColors.surface,
@@ -759,16 +644,18 @@ class _FileGridTile extends GetView<SendFilesController> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: isImage && path != null && path.isNotEmpty
-                          ? _LazyImageThumbnail(path: path)
-                          : Container(
-                              color: AppColors.brandIndigo.withValues(alpha: 0.08),
-                              child: Icon(
-                                LocalFileBrowserService.iconFor(file),
-                                color: AppColors.brandIndigo,
-                                size: 30,
-                              ),
-                            ),
+                      child: isAsset && assetId != null
+                          ? _AssetThumbnail(assetId: assetId, showVideoBadge: isVideo)
+                          : isImage && path != null && path.isNotEmpty
+                              ? _LazyImageThumbnail(path: path)
+                              : Container(
+                                  color: AppColors.brandIndigo.withValues(alpha: 0.08),
+                                  child: Icon(
+                                    LocalFileBrowserService.iconFor(file),
+                                    color: AppColors.brandIndigo,
+                                    size: 30,
+                                  ),
+                                ),
                     ),
                   ),
                   Padding(
@@ -788,6 +675,22 @@ class _FileGridTile extends GetView<SendFilesController> {
                         if (file.size != null)
                           Text(
                             file.sizeLabel,
+                            style: TextStyle(
+                              fontSize: Responsive.sp(11),
+                              color: AppColors.textSecondary,
+                            ),
+                          )
+                        else if (isVideo)
+                          Text(
+                            'Video',
+                            style: TextStyle(
+                              fontSize: Responsive.sp(11),
+                              color: AppColors.textSecondary,
+                            ),
+                          )
+                        else if (isImage || isAsset)
+                          Text(
+                            'Image',
                             style: TextStyle(
                               fontSize: Responsive.sp(11),
                               color: AppColors.textSecondary,
@@ -882,11 +785,72 @@ class _LazyImageThumbnail extends StatelessWidget {
   }
 }
 
+class _AssetThumbnail extends StatelessWidget {
+  const _AssetThumbnail({
+    required this.assetId,
+    this.showVideoBadge = false,
+  });
+
+  final String assetId;
+  final bool showVideoBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AssetEntity?>(
+      future: AssetEntity.fromId(assetId),
+      builder: (context, snapshot) {
+        final entity = snapshot.data;
+        if (entity == null) {
+          return ColoredBox(
+            color: AppColors.brandIndigo.withValues(alpha: 0.08),
+            child: const Center(
+              child: Icon(Icons.image_rounded, color: AppColors.brandIndigo, size: 28),
+            ),
+          );
+        }
+
+        return FutureBuilder(
+          future: entity.thumbnailDataWithSize(const ThumbnailSize.square(200)),
+          builder: (context, thumbSnap) {
+            final bytes = thumbSnap.data;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                if (bytes != null)
+                  Image.memory(
+                    bytes,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    filterQuality: FilterQuality.low,
+                  )
+                else
+                  ColoredBox(
+                    color: AppColors.brandIndigo.withValues(alpha: 0.08),
+                    child: const Center(
+                      child: Icon(Icons.image_rounded, color: AppColors.brandIndigo, size: 28),
+                    ),
+                  ),
+                if (showVideoBadge)
+                  const Positioned(
+                    left: 6,
+                    bottom: 6,
+                    child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 22),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _BottomActions extends StatelessWidget {
   const _BottomActions({
     required this.selectedCount,
     required this.hasSelection,
     required this.isPicking,
+    required this.browseLabel,
     required this.onBrowse,
     required this.onContinue,
   });
@@ -894,6 +858,7 @@ class _BottomActions extends StatelessWidget {
   final int selectedCount;
   final bool hasSelection;
   final bool isPicking;
+  final String browseLabel;
   final VoidCallback onBrowse;
   final VoidCallback onContinue;
 
@@ -928,7 +893,7 @@ class _BottomActions extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.add_rounded),
                 label: Text(
-                  Platform.isIOS ? 'Browse Files App' : 'Add Files',
+                  browseLabel,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),

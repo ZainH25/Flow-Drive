@@ -48,6 +48,14 @@
 	<key>NSCameraUsageDescription</key>
 	<string>FlowDrive needs camera access to scan and send images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>FlowDrive needs photo library access to send images and files.</string>
+	<string>FlowDrive needs photo library access to show and send your photos, videos, and other media files.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>FlowDrive may save received media to your photo library.</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UISupportsDocumentBrowser</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 </dict>
 </plist>

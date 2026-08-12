@@ -45,6 +45,20 @@ class LocalStorageService {
     await _prefs.remove(StorageKeys.rememberedEmail);
   }
 
+  String? get iosSendFolderPath => _prefs.getString(StorageKeys.iosSendFolderPath);
+
+  String? get iosSendFolderName => _prefs.getString(StorageKeys.iosSendFolderName);
+
+  Future<void> setIosSendFolder({required String path, required String name}) async {
+    await _prefs.setString(StorageKeys.iosSendFolderPath, path);
+    await _prefs.setString(StorageKeys.iosSendFolderName, name);
+  }
+
+  Future<void> clearIosSendFolder() async {
+    await _prefs.remove(StorageKeys.iosSendFolderPath);
+    await _prefs.remove(StorageKeys.iosSendFolderName);
+  }
+
   Future<void> clearAll() async {
     await _prefs.clear();
   }

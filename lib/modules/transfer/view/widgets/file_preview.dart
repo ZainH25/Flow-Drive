@@ -5,13 +5,28 @@ import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
 
 import '../../../dashboard/model/picked_file_item.dart';
+import '../../service/ios_media_browser_service.dart';
 import '../../service/local_file_browser_service.dart';
 
 class FilePreview {
   FilePreview._();
 
   static Future<void> show(BuildContext context, PickedFileItem file) async {
-    final path = file.path;
+    var item = file;
+    if (IosMediaPaths.isAssetRef(item.path)) {
+      final resolved = await IosMediaBrowserService.resolveIfNeeded(item);
+      if (resolved == null) {
+        Get.snackbar(
+          'Cannot preview',
+          'This file is no longer available on your device.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
+      item = resolved;
+    }
+
+    final path = item.path;
     if (path == null || path.isEmpty) {
       Get.snackbar(
         'Cannot preview',
@@ -32,7 +47,7 @@ class FilePreview {
       return;
     }
 
-    if (LocalFileBrowserService.isImage(file)) {
+    if (LocalFileBrowserService.isImage(item)) {
       // Large photos can freeze if decoded full-size in-app — open externally when big.
       try {
         final size = await File(path).length();
@@ -43,7 +58,7 @@ class FilePreview {
       } catch (_) {}
 
       if (!context.mounted) return;
-      await _showImagePreview(context, file, path);
+      await _showImagePreview(context, item, path);
       return;
     }
 

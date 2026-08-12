@@ -43,10 +43,11 @@ class FileMapScreen extends GetView<GraphMapController> {
             return Text(title);
           }),
           actions: [
-            IconButton(
-              tooltip: 'Pick another folder',
+            TextButton.icon(
               onPressed: controller.grantAccess,
-              icon: const Icon(Icons.create_new_folder_outlined),
+              icon: const Icon(Icons.folder_open_rounded, size: 20),
+              label: const Text('Choose Folder'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.brandIndigo),
             ),
           ],
           bottom: PreferredSize(
@@ -126,7 +127,7 @@ class FileMapScreen extends GetView<GraphMapController> {
               iconColor: AppColors.brandIndigo,
               title: 'Map a folder',
               body:
-                  'Pick a folder on your device. Flow maps it once so you can swipe to any file and open it instantly.',
+                  'Choose a folder. Flow maps its files (PDF, images, and more) as a graph — swipe or tap a node to open it.',
               actionLabel: 'Choose folder',
               onAction: controller.grantAccess,
             );
@@ -182,7 +183,7 @@ class FileMapScreen extends GetView<GraphMapController> {
               Expanded(child: _GraphMapView(controller: controller)),
               if (controller.statusMsg.value != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                   child: Text(
                     controller.statusMsg.value!,
                     textAlign: TextAlign.center,
@@ -193,6 +194,31 @@ class FileMapScreen extends GetView<GraphMapController> {
                     ),
                   ),
                 ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: controller.grantAccess,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.brandIndigo,
+                        side: const BorderSide(color: AppColors.brandIndigo),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(Icons.folder_open_rounded),
+                      label: const Text(
+                        'Choose Folder',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           );
         }),

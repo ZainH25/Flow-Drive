@@ -17,6 +17,7 @@ class QuickActionsService {
         withData: false,
       );
       if (result == null) return [];
+      // Keep every returned file — do not drop items without a path on iOS.
       return result.files.map(PickedFileItem.fromPlatformFile).toList();
     } on PlatformException catch (e) {
       throw FilePickerException(

@@ -4,28 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../dashboard/model/picked_file_item.dart';
+import 'ios_media_browser_service.dart';
+import 'local_browse_models.dart';
 
-class LocalFileFolder {
-  const LocalFileFolder({
-    required this.name,
-    required this.path,
-    required this.icon,
-  });
-
-  final String name;
-  final String path;
-  final IconData icon;
-}
-
-class LocalBrowseResult {
-  const LocalBrowseResult({
-    required this.folders,
-    required this.files,
-  });
-
-  final List<LocalFileFolder> folders;
-  final List<PickedFileItem> files;
-}
+export 'local_browse_models.dart';
 
 class LocalFileBrowserService {
   LocalFileBrowserService._();
@@ -82,11 +64,22 @@ class LocalFileBrowserService {
 
   static String get platformLabel {
     if (Platform.isAndroid) return 'Android File Manager';
-    if (Platform.isIOS) return 'Files on iPhone';
+    if (Platform.isIOS) return 'iPhone File Manager';
     if (Platform.isMacOS) return 'Finder';
     if (Platform.isWindows) return 'File Explorer';
     if (Platform.isLinux) return 'Files';
     return 'File Manager';
+  }
+
+  /// Root title shown in the app bar / banner (Android-style friendly names).
+  static String rootDisplayName(String path) {
+    final normalized = path.replaceAll(RegExp(r'[\\/]+$'), '');
+    if (Platform.isAndroid &&
+        (normalized == '/storage/emulated/0' || normalized.endsWith('/emulated/0'))) {
+      return 'Internal Storage';
+    }
+    if (Platform.isIOS) return 'On My iPhone';
+    return displayNameForPath(path);
   }
 
   /// Resolves the real user home (not the macOS app-sandbox container).
@@ -132,7 +125,8 @@ class LocalFileBrowserService {
       return external?.path;
     }
     if (Platform.isIOS) {
-      return (await getApplicationDocumentsDirectory()).path;
+      // Virtual root: Photos / Videos / Documents folders + recent media files.
+      return IosMediaPaths.root;
     }
     return (await getApplicationDocumentsDirectory()).path;
   }
@@ -286,21 +280,41 @@ class LocalFileBrowserService {
   }
 
   static Future<List<LocalFileFolder>> _discoverIosSandbox() async {
-    final locations = <LocalFileFolder>[];
-    final seen = <String>{};
+    final locations = <LocalFileFolder>[
+      const LocalFileFolder(
+        name: 'On My iPhone',
+        path: IosMediaPaths.root,
+        icon: Icons.phone_iphone_rounded,
+      ),
+      const LocalFileFolder(
+        name: 'Photos',
+        path: IosMediaPaths.photos,
+        icon: Icons.photo_library_rounded,
+      ),
+      const LocalFileFolder(
+        name: 'Videos',
+        path: IosMediaPaths.videos,
+        icon: Icons.movie_outlined,
+      ),
+    ];
+    final seen = <String>{
+      IosMediaPaths.root,
+      IosMediaPaths.photos,
+      IosMediaPaths.videos,
+    };
 
-    Future<void> addDir(Future<Directory> dirFuture, String label, IconData icon) async {
-      try {
-        final dir = await dirFuture;
-        if (seen.add(dir.path)) {
-          locations.add(LocalFileFolder(name: label, path: dir.path, icon: icon));
-        }
-      } catch (_) {}
-    }
-
-    await addDir(getApplicationDocumentsDirectory(), 'Documents', Icons.description_outlined);
-    await addDir(getLibraryDirectory(), 'Library', Icons.folder_rounded);
-    await addDir(getTemporaryDirectory(), 'Temporary', Icons.schedule_rounded);
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      if (seen.add(docs.path)) {
+        locations.add(
+          LocalFileFolder(
+            name: 'Documents',
+            path: docs.path,
+            icon: Icons.description_outlined,
+          ),
+        );
+      }
+    } catch (_) {}
 
     final downloads = await getDownloadsDirectory();
     if (downloads != null && seen.add(downloads.path)) {
@@ -312,6 +326,30 @@ class LocalFileBrowserService {
         ),
       );
     }
+
+    // Shared mirror used by Files-app folder imports (PDFs and other docs).
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final graphMap = Directory('${docs.parent.path}/Library/Caches/GraphMap');
+      if (await graphMap.exists()) {
+        final children = graphMap.listSync(followLinks: false).whereType<Directory>();
+        for (final uuidDir in children) {
+          final nested = uuidDir.listSync(followLinks: false).whereType<Directory>();
+          for (final folder in nested) {
+            final name = folder.path.split(Platform.pathSeparator).last;
+            if (seen.add(folder.path)) {
+              locations.add(
+                LocalFileFolder(
+                  name: name,
+                  path: folder.path,
+                  icon: Icons.folder_shared_rounded,
+                ),
+              );
+            }
+          }
+        }
+      }
+    } catch (_) {}
 
     return locations;
   }
@@ -362,6 +400,10 @@ class LocalFileBrowserService {
   }
 
   static Future<LocalBrowseResult> explore(String path) async {
+    if (Platform.isIOS && IosMediaPaths.isVirtual(path)) {
+      return IosMediaBrowserService.explore(path);
+    }
+
     final dir = Directory(path);
     if (!await dir.exists()) {
       return const LocalBrowseResult(folders: [], files: []);
@@ -390,7 +432,10 @@ class LocalFileBrowserService {
 
       try {
         if (entry is Directory) {
-          if (isAppSandboxPath(entry.path)) continue;
+          // On macOS/desktop we hide app-sandbox container folders when browsing
+          // the real home. On iOS every user-visible path lives under
+          // .../Containers/... — skipping them empties the entire tree.
+          if (!Platform.isIOS && isAppSandboxPath(entry.path)) continue;
           folders.add(
             LocalFileFolder(
               name: name,
@@ -403,6 +448,22 @@ class LocalFileBrowserService {
 
         if (entry is File) {
           files.add(_fileFromPath(entry));
+          continue;
+        }
+
+        // iOS document providers sometimes surface untyped entities.
+        final type = await FileSystemEntity.type(entry.path, followLinks: false);
+        if (type == FileSystemEntityType.directory) {
+          if (!Platform.isIOS && isAppSandboxPath(entry.path)) continue;
+          folders.add(
+            LocalFileFolder(
+              name: name,
+              path: entry.path,
+              icon: iconForFolderName(name),
+            ),
+          );
+        } else if (type == FileSystemEntityType.file) {
+          files.add(_fileFromPath(File(entry.path)));
         }
       } catch (_) {
         // Skip inaccessible entries without wiping the whole listing.
@@ -427,8 +488,14 @@ class LocalFileBrowserService {
     );
   }
 
-  static bool isImage(PickedFileItem file) =>
-      _imageExtensions.contains(file.extension?.toLowerCase());
+  static bool isImage(PickedFileItem file) {
+    if (_imageExtensions.contains(file.extension?.toLowerCase())) return true;
+    // Photo-library assets default to image unless marked as video.
+    if (IosMediaPaths.isAssetRef(file.path)) {
+      return !isVideo(file);
+    }
+    return false;
+  }
 
   static bool isVideo(PickedFileItem file) =>
       _videoExtensions.contains(file.extension?.toLowerCase());
