@@ -105,11 +105,19 @@ class HomeController extends GetxController {
   }
 
   Future<void> browseFiles() async {
-    final files = await QuickActionsService.browseLocalFiles();
-    if (files.isEmpty) return;
+    try {
+      final files = await QuickActionsService.browseLocalFiles();
+      if (files.isEmpty) return;
 
-    browsedFiles.assignAll(files);
-    await QuickActionSheets.showBrowseFiles(browsedFiles);
+      browsedFiles.assignAll(files);
+      await QuickActionSheets.showBrowseFiles(browsedFiles);
+    } on FilePickerException catch (e) {
+      Get.snackbar(
+        'Cannot open files',
+        e.message,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   Future<void> scanImage() async {

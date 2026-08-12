@@ -590,10 +590,23 @@ class _FileStrip extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (isImage && path != null && File(path).existsSync())
+                      if (isImage && path != null && path.isNotEmpty)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.file(File(path), width: 36, height: 36, fit: BoxFit.cover),
+                          child: Image.file(
+                            File(path),
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                            cacheWidth: 72,
+                            cacheHeight: 72,
+                            filterQuality: FilterQuality.low,
+                            errorBuilder: (context, error, stackTrace) => const Icon(
+                              Icons.broken_image_outlined,
+                              size: 20,
+                              color: AppColors.brandIndigo,
+                            ),
+                          ),
                         )
                       else
                         Icon(

@@ -17,6 +17,9 @@ class TransferCompleteController extends GetxController {
   }
 
   void onSendAnother() {
-    Get.offNamed(AppRoutes.sendFiles);
+    Get.offNamedUntil(
+      AppRoutes.sendFiles,
+      (route) => route.settings.name == AppRoutes.dashboard,
+    );
   }
 }

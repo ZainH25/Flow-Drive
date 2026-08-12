@@ -42,3 +42,9 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Annotation jars referenced by Google Tink (Amplify auth). Required for R8 release builds.
+    implementation("com.google.errorprone:error_prone_annotations:2.36.0")
+    implementation("com.github.spotbugs:spotbugs-annotations:4.8.6")
+}

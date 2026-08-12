@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
 class AppTheme {
   AppTheme._();
 
+  static const _fontFamily = 'Inter';
+  static const _fontFallback = [
+    '.AppleSystemUIFont',
+    'Segoe UI',
+    'Roboto',
+    'Helvetica Neue',
+    'Arial',
+    'sans-serif',
+  ];
+
   static ThemeData get light {
     final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fontFallback,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         primary: AppColors.primary,
@@ -72,7 +83,14 @@ class AppTheme {
     );
 
     return base.copyWith(
-      textTheme: GoogleFonts.interTextTheme(base.textTheme),
+      textTheme: base.textTheme.apply(
+        fontFamily: _fontFamily,
+        fontFamilyFallback: _fontFallback,
+      ),
+      primaryTextTheme: base.primaryTextTheme.apply(
+        fontFamily: _fontFamily,
+        fontFamilyFallback: _fontFallback,
+      ),
     );
   }
 }

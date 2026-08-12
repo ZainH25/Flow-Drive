@@ -64,19 +64,6 @@ class FilesTab extends StatelessWidget {
       ],
     );
 
-    if (Responsive.isDesktop) {
-      return ColoredBox(
-        color: AppColors.background,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
-            child: content,
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Files')),

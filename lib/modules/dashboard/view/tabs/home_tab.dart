@@ -49,76 +49,8 @@ class HomeTab extends GetView<HomeController> {
         ],
       );
 
-      if (Responsive.isDesktop) {
-        return ColoredBox(
-          color: AppColors.background,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth),
-              child: content,
-            ),
-          ),
-        );
-      }
-
       return Scaffold(
         backgroundColor: AppColors.background,
-        // appBar: AppBar(
-        //   scrolledUnderElevation:0,
-        //   centerTitle: true,
-        //   titleSpacing: 0,
-        //   title: Row(
-        //     mainAxisSize: MainAxisSize.min, //
-        //     children: [
-        //       const SizedBox(width: 4),
-        //       ClipRRect(
-        //         borderRadius: BorderRadius.circular(10),
-        //         child: Image.asset(
-        //           AssetPaths.logo,
-        //           width: 32,
-        //           height: 32,
-        //           fit: BoxFit.cover,
-        //           errorBuilder: (context, error, stackTrace) => Container(
-        //             width: 32,
-        //             height: 32,
-        //             color: AppColors.brandIndigo,
-        //             child: const Icon(Icons.hub_rounded, color: Colors.white, size: 18),
-        //           ),
-        //         ),
-        //       ),
-        //       const SizedBox(width: 0),
-        //       const Text('Home', style: TextStyle(fontWeight: FontWeight.w700) , textAlign: TextAlign.center),
-        //     ],
-        //   ),
-        //   actions: [
-        //     IconButton(
-        //       onPressed: () {},
-        //       icon: const Icon(Icons.search_rounded),
-        //     ),
-
-        //     IconButton(
-        //       onPressed: () {},
-        //       icon: const Icon(Icons.notifications_rounded),
-        //     ),
-
-        //     Padding(
-        //       padding: const EdgeInsets.only(right: 12),
-        //       child: CircleAvatar(
-        //         radius: 18,
-        //         backgroundColor: AppColors.brandIndigo.withValues(alpha: 0.15),
-        //         child: Text(
-        //           avatarName.isNotEmpty ? avatarName[0].toUpperCase() : 'U',
-        //           style: const TextStyle(
-        //             color: AppColors.brandIndigo,
-        //             fontWeight: FontWeight.bold,
-        //           ),
-        //         ),
-        //       ),
-        //     ),
-        //   ],
-        // ),
-
         appBar: AppBar(
           scrolledUnderElevation: 0,
           centerTitle: true,
@@ -305,21 +237,30 @@ class _StorageCard extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '$percent% used',
-                    style: TextStyle(
-                      fontSize: Responsive.sp(14),
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                  Flexible(
+                    child: Text(
+                      '$percent% used',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: Responsive.sp(14),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                  Text(
-                    '${controller.storageUsedLabel.value} of ${controller.storageTotalLabel.value}',
-                    style: TextStyle(
-                      fontSize: Responsive.sp(13),
-                      color: AppColors.textSecondary,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '${controller.storageUsedLabel.value} of ${controller.storageTotalLabel.value}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontSize: Responsive.sp(13),
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -421,14 +362,17 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: Responsive.sp(18),
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: Responsive.sp(18),
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
         TextButton(
@@ -502,6 +446,8 @@ class _DeviceCard extends StatelessWidget {
           const Spacer(),
           Text(
             device.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: Responsive.sp(13),
               fontWeight: FontWeight.w600,
@@ -520,11 +466,15 @@ class _DeviceCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                'Online',
-                style: TextStyle(
-                  fontSize: Responsive.sp(12),
-                  color: AppColors.textSecondary,
+              Flexible(
+                child: Text(
+                  'Online',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: Responsive.sp(12),
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -566,6 +516,9 @@ class _AddDeviceCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Add Device',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: Responsive.sp(13),
               fontWeight: FontWeight.w600,

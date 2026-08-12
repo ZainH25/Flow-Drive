@@ -8,14 +8,14 @@ import '../model/transfer_device.dart';
 class SendBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut(SendFilesController.new);
+    Get.lazyPut(SendFilesController.new, fenix: true);
   }
 }
 
 class DeviceRadarBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut(DeviceRadarController.new);
+    Get.lazyPut(DeviceRadarController.new, fenix: true);
   }
 }
 

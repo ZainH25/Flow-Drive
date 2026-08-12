@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/responsive.dart';
 import '../controller/dashboard_controller.dart';
 import 'tabs/files_tab.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'tabs/transfers_tab.dart';
+import 'widgets/file_map_launcher.dart';
 
 class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});
@@ -24,51 +24,15 @@ class DashboardView extends GetView<DashboardController> {
     return Obx(() {
       final index = controller.currentIndex.value;
 
-      if (Responsive.isDesktop) {
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: AppBar(
-            title: Text(DashboardController.tabs[index].label),
-            actions: [
-              IconButton(onPressed: _showQuickSend, icon: const Icon(Icons.add_rounded)),
-            ],
-          ),
-          body: Row(
-            children: [
-              NavigationRail(
-                selectedIndex: index,
-                onDestinationSelected: controller.setIndex,
-                labelType: NavigationRailLabelType.all,
-                destinations: [
-                  for (final t in DashboardController.tabs)
-                    NavigationRailDestination(
-                      icon: Icon(t.icon),
-                      selectedIcon: Icon(t.activeIcon),
-                      label: Text(t.label),
-                    ),
-                ],
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(child: IndexedStack(index: index, children: _tabs)),
-            ],
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _showQuickSend,
-            backgroundColor: AppColors.brandIndigo,
-            child: const Icon(Icons.add_rounded, color: Colors.white),
-          ),
-        );
-      }
-
       return Scaffold(
         backgroundColor: AppColors.background,
         body: IndexedStack(index: index, children: _tabs),
         floatingActionButton: FloatingActionButton(
-          onPressed: _showQuickSend,
+          onPressed: FileMapLauncher.open,
           elevation: 4,
           backgroundColor: AppColors.brandIndigo,
           shape: const CircleBorder(),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
+          child: const Icon(Icons.hub_rounded, color: Colors.white, size: 28),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: _DashboardBottomBar(
@@ -77,52 +41,6 @@ class DashboardView extends GetView<DashboardController> {
         ),
       );
     });
-  }
-
-  void _showQuickSend() {
-    Get.bottomSheet(
-      Container(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Quick Send',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Send files instantly to a connected device.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.upload_file_rounded, color: AppColors.brandIndigo),
-              title: const Text('Send a file'),
-              onTap: () => Get.back(),
-            ),
-            ListTile(
-              leading: const Icon(Icons.devices_rounded, color: AppColors.brandIndigo),
-              title: const Text('Add device'),
-              onTap: () => Get.back(),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -149,38 +67,44 @@ class _DashboardBottomBar extends StatelessWidget {
         child: SizedBox(
           height: 53,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-          _NavItem(
-            label: 'Home',
-            icon: Icons.home_outlined,
-            activeIcon: Icons.home_rounded,
-            isSelected: selectedIndex == 0,
-            onTap: () => onTap(0),
-          ),
-          _NavItem(
-            label: 'Files',
-            icon: Icons.folder_outlined,
-            activeIcon: Icons.folder_rounded,
-            isSelected: selectedIndex == 1,
-            onTap: () => onTap(1),
-          ),
-          const SizedBox(width: 48),
-          _NavItem(
-            label: 'Transfers',
-            icon: Icons.swap_horiz_outlined,
-            activeIcon: Icons.swap_horiz_rounded,
-            isSelected: selectedIndex == 3,
-            onTap: () => onTap(3),
-          ),
-          _NavItem(
-            label: 'Profile',
-            icon: Icons.person_outline_rounded,
-            activeIcon: Icons.person_rounded,
-            isSelected: selectedIndex == 4,
-            onTap: () => onTap(4),
-          ),
+              Expanded(
+                child: _NavItem(
+                  label: 'Home',
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home_rounded,
+                  isSelected: selectedIndex == 0,
+                  onTap: () => onTap(0),
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  label: 'Files',
+                  icon: Icons.folder_outlined,
+                  activeIcon: Icons.folder_rounded,
+                  isSelected: selectedIndex == 1,
+                  onTap: () => onTap(1),
+                ),
+              ),
+              const SizedBox(width: 44),
+              Expanded(
+                child: _NavItem(
+                  label: 'Transfers',
+                  icon: Icons.swap_horiz_outlined,
+                  activeIcon: Icons.swap_horiz_rounded,
+                  isSelected: selectedIndex == 3,
+                  onTap: () => onTap(3),
+                ),
+              ),
+              Expanded(
+                child: _NavItem(
+                  label: 'Profile',
+                  icon: Icons.person_outline_rounded,
+                  activeIcon: Icons.person_rounded,
+                  isSelected: selectedIndex == 4,
+                  onTap: () => onTap(4),
+                ),
+              ),
             ],
           ),
         ),
@@ -212,20 +136,24 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(isSelected ? activeIcon : icon, color: color, size: 21),
             const SizedBox(height: 1),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9.5,
-                height: 1.1,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  height: 1.1,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: color,
+                ),
               ),
             ),
           ],

@@ -25,11 +25,14 @@ dependencies:
   shared_preferences: ^2.5.3
 
   # UI helpers
-  google_fonts: ^6.2.1
   smooth_page_indicator: ^1.2.1
-  file_picker: ^3.0.4
+  file_picker: ^11.0.3
   image_picker: ^1.2.3
   path_provider: ^2.1.6
+  open_filex: ^4.7.0
+  # 13.x pulls permission_handler_android 14 (AGP 9 / Kotlin 2.3) which breaks this project.
+  permission_handler: 12.0.1
+  device_info_plus: ^12.4.0
 
 dev_dependencies:
   flutter_test:
@@ -38,6 +41,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
 
   assets:
     - assets/images/

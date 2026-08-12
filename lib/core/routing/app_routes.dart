@@ -7,6 +7,7 @@ class AppRoutes {
   static const String dashboard = '/dashboard';
   static const String colorTheme = '/color-theme';
   static const String sendFiles = '/send-files';
+  static const String fileMap = '/file-map';
   static const String deviceRadar = '/device-radar';
   static const String transferComplete = '/transfer-complete';
 }
