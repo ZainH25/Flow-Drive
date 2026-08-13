@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import QuickLook
 
 final class DeviceStorageChannel {
   static func register(with controller: FlutterViewController) {
@@ -17,7 +18,7 @@ final class DeviceStorageChannel {
           "totalMb": totalMb,
           "freeMb": freeMb,
         ])
-      case "revealFolder":
+      case "revealFolder", "revealPath":
         guard
           let args = call.arguments as? [String: Any],
           let path = args["path"] as? String,
@@ -28,32 +29,46 @@ final class DeviceStorageChannel {
           )
           return
         }
-        DeviceStorageChannel.revealFolder(path: path, result: result)
+        revealPath(path: path, host: controller, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
     }
   }
 
-  /// Open [path] in the Files app when possible (map stays unchanged).
-  private static func revealFolder(path: String, result: @escaping FlutterResult) {
+  /// Open [path] in Files / the default app (map stays unchanged).
+  private static func revealPath(
+    path: String,
+    host: UIViewController,
+    result: @escaping FlutterResult
+  ) {
+    if let originalURL = GraphMapMirrorRegistry.resolveURL(for: path) {
+      openResolvedURL(originalURL, host: host, result: result)
+      return
+    }
+
     var isDir: ObjCBool = false
-    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else {
+    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else {
       result(
-        FlutterError(code: "NOT_FOUND", message: "Folder not found", details: nil)
+        FlutterError(code: "NOT_FOUND", message: "Path not found", details: nil)
       )
       return
     }
 
-    let fileURL = URL(fileURLWithPath: path)
+    let fileURL = URL(fileURLWithPath: path, isDirectory: isDir.boolValue)
+    openResolvedURL(fileURL, host: host, result: result)
+  }
 
-    // Deep-link into Files (same idea as Finder on macOS).
-    var components = URLComponents()
-    components.scheme = "shareddocuments"
-    components.path = fileURL.path
+  private static func openResolvedURL(
+    _ url: URL,
+    host: UIViewController,
+    result: @escaping FlutterResult
+  ) {
+    var isDir: ObjCBool = false
+    FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
 
-    if let filesURL = components.url {
-      UIApplication.shared.open(filesURL, options: [:]) { success in
+    if isDir.boolValue {
+      UIApplication.shared.open(url, options: [:]) { success in
         if success {
           result(true)
           return
@@ -63,7 +78,7 @@ final class DeviceStorageChannel {
       return
     }
 
-    openFilesAppRoot(result: result)
+    QuickLookPreview.present(url: url, from: host, result: result)
   }
 
   private static func openFilesAppRoot(result: @escaping FlutterResult) {
@@ -71,7 +86,7 @@ final class DeviceStorageChannel {
       result(
         FlutterError(
           code: "OPEN_FAILED",
-          message: "Could not open the Files app for this folder.",
+          message: "Could not open the Files app for this path.",
           details: nil
         )
       )
@@ -84,7 +99,7 @@ final class DeviceStorageChannel {
         result(
           FlutterError(
             code: "OPEN_FAILED",
-            message: "Could not open the Files app for this folder.",
+            message: "Could not open the Files app for this path.",
             details: nil
           )
         )
@@ -131,5 +146,33 @@ final class DeviceStorageChannel {
       return 0
     }
     return free
+  }
+}
+
+private final class QuickLookPreview: NSObject, QLPreviewControllerDataSource {
+  private static var shared = QuickLookPreview()
+  private var url: URL?
+  private var flutterResult: FlutterResult?
+
+  static func present(url: URL, from host: UIViewController, result: @escaping FlutterResult) {
+    shared.url = url
+    shared.flutterResult = result
+    let preview = QLPreviewController()
+    preview.dataSource = shared
+    host.present(preview, animated: true) {
+      shared.flutterResult?(true)
+      shared.flutterResult = nil
+    }
+  }
+
+  func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
+    url == nil ? 0 : 1
+  }
+
+  func previewController(
+    _ controller: QLPreviewController,
+    previewItemAt index: Int
+  ) -> QLPreviewItem {
+    url! as NSURL
   }
 }

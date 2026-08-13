@@ -13,4 +13,6 @@ class StorageKeys {
   /// Last iOS folder mirrored for Send Files browsing.
   static const String iosSendFolderPath = 'ios_send_folder_path';
   static const String iosSendFolderName = 'ios_send_folder_name';
+
+  static const String gestureShapes = 'gesture_shapes_v1';
 }

@@ -65,6 +65,12 @@ class ProfileTab extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _ProfileMenuItem(
+            icon: Icons.gesture_rounded,
+            title: 'Gesture Shapes',
+            subtitle: 'Add shapes and link them to files',
+            onTap: () => Get.toNamed(AppRoutes.gestureShapes),
+          ),
+          _ProfileMenuItem(
             icon: Icons.palette_outlined,
             title: 'Color Theme',
             onTap: () => Get.toNamed(AppRoutes.colorTheme),
@@ -114,11 +120,13 @@ class _ProfileMenuItem extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.subtitle,
     this.isDestructive = false,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
   final bool isDestructive;
 
@@ -136,6 +144,15 @@ class _ProfileMenuItem extends StatelessWidget {
       child: ListTile(
         leading: Icon(icon, color: color),
         title: Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w500)),
+        subtitle: subtitle == null
+            ? null
+            : Text(
+                subtitle!,
+                style: TextStyle(
+                  color: isDestructive ? AppColors.error : AppColors.textSecondary,
+                  fontSize: Responsive.sp(12),
+                ),
+              ),
         trailing: Icon(
           Icons.chevron_right_rounded,
           color: isDestructive ? AppColors.error : AppColors.textSecondary,

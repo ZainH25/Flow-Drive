@@ -4,17 +4,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../../core/widgets/opened_path_banner.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../gesture_shapes/controller/gesture_shapes_controller.dart';
+import '../../gesture_shapes/view/gesture_pad_body.dart';
 import '../controller/file_map_controller.dart';
 import '../model/file_graph_node.dart';
 
-/// Bottom tabs in File Map — wire [gesture] / [voice] bodies to your own flows.
+/// Bottom tabs in File Map — Map, Gesture (draw to open), Voice (same map).
 enum FileMapShellTab { map, gesture, voice }
 
 /// Light graph map for fast file retrieval — opens files, never sends.
 class FileMapView extends GetView<FileMapController> {
   const FileMapView({super.key});
+
+  static const title = 'Fast Retrieval';
 
   @override
   Widget build(BuildContext context) {
@@ -34,102 +39,153 @@ class FileMapView extends GetView<FileMapController> {
           Get.back();
         }
       },
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          backgroundColor: AppColors.surface,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leading: Obx(() {
-            if (controller.rootHistory.isNotEmpty) {
-              return IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                tooltip: 'Previous root',
-                onPressed: controller.stepBackRoot,
-              );
-            }
+      child: _FileMapRoot(controller: controller),
+    );
+  }
+}
+
+class _FileMapRoot extends StatefulWidget {
+  const _FileMapRoot({required this.controller});
+
+  final FileMapController controller;
+
+  @override
+  State<_FileMapRoot> createState() => _FileMapRootState();
+}
+
+class _FileMapRootState extends State<_FileMapRoot> {
+  FileMapShellTab _tab = FileMapShellTab.map;
+
+  @override
+  Widget build(BuildContext context) {
+    final isGesture = _tab == FileMapShellTab.gesture;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leading: Obx(() {
+          if (widget.controller.rootHistory.isNotEmpty) {
             return IconButton(
-              icon: const Icon(Icons.close_rounded),
-              onPressed: Get.back,
+              icon: const Icon(Icons.arrow_back_rounded),
+              tooltip: 'Previous root',
+              onPressed: widget.controller.stepBackRoot,
+            );
+          }
+          return IconButton(
+            icon: const Icon(Icons.close_rounded),
+            tooltip: 'Close',
+            onPressed: Get.back,
+          );
+        }),
+        title: const Text(FileMapView.title),
+        actions: [
+          if (!isGesture)
+            IconButton(
+              onPressed: widget.controller.grantAccess,
+              icon: const Icon(Icons.folder_open_rounded),
+              tooltip: 'Choose Folder',
+              color: AppColors.brandIndigo,
+            ),
+        ],
+        bottom: isGesture
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(40),
+                child: Obx(() {
+                  final chain = widget.controller.breadcrumbChain();
+                  if (chain.isEmpty) return const SizedBox(height: 8);
+
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 16, 10),
+                    child: Row(
+                      children: [
+                        if (chain.length > 1)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            onPressed: widget.controller.goBack,
+                            icon: const Icon(
+                              Icons.chevron_left_rounded,
+                              color: AppColors.brandIndigo,
+                            ),
+                          ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (var i = 0; i < chain.length; i++) ...[
+                                  if (i > 0)
+                                    Text(
+                                      ' / ',
+                                      style: TextStyle(
+                                        color: AppColors.textHint,
+                                        fontSize: Responsive.sp(12),
+                                      ),
+                                    ),
+                                  GestureDetector(
+                                    onTap: () => widget.controller.openFolder(chain[i].id),
+                                    child: Text(
+                                      chain[i].name,
+                                      style: TextStyle(
+                                        color: i == chain.length - 1
+                                            ? AppColors.textPrimary
+                                            : AppColors.brandIndigo,
+                                        fontSize: Responsive.sp(12),
+                                        fontWeight: i == chain.length - 1
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+      ),
+      body: Column(
+        children: [
+          Obx(() {
+            final mapLabel = widget.controller.openedItemLabel.value;
+            final gestureLabel = Get.isRegistered<GestureShapesController>()
+                ? Get.find<GestureShapesController>().openedItemLabel.value
+                : null;
+            final label = mapLabel ?? gestureLabel;
+            if (label == null) return const SizedBox.shrink();
+
+            return OpenedPathBanner(
+              label: label,
+              onDismiss: () {
+                widget.controller.dismissOpenedItem();
+                if (Get.isRegistered<GestureShapesController>()) {
+                  Get.find<GestureShapesController>().dismissOpenedItem();
+                }
+              },
             );
           }),
-          title: Obx(() {
-            final chain = controller.breadcrumbChain();
-            final title = chain.isEmpty ? 'File Map' : chain.last.name;
-            return Text(title);
-          }),
-          actions: [
-            Obx(() {
-              if (controller.rootHistory.isEmpty) return const SizedBox.shrink();
-              return IconButton(
-                icon: const Icon(Icons.close_rounded),
-                tooltip: 'Close',
-                onPressed: Get.back,
-              );
-            }),
-            TextButton.icon(
-              onPressed: controller.grantAccess,
-              icon: const Icon(Icons.folder_open_rounded, size: 20),
-              label: const Text('Choose Folder'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.brandIndigo),
+          Expanded(
+            child: _FileMapShell(
+              controller: widget.controller,
+              tab: _tab,
+              onTabChanged: (tab) {
+                setState(() => _tab = tab);
+                if (tab == FileMapShellTab.gesture &&
+                    Get.isRegistered<GestureShapesController>()) {
+                  Get.find<GestureShapesController>().reloadShapes();
+                }
+              },
             ),
-          ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(40),
-            child: Obx(() {
-              final chain = controller.breadcrumbChain();
-              if (chain.isEmpty) return const SizedBox(height: 8);
-
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 16, 10),
-                child: Row(
-                  children: [
-                    if (chain.length > 1)
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: controller.goBack,
-                        icon: const Icon(Icons.chevron_left_rounded, color: AppColors.brandIndigo),
-                      ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < chain.length; i++) ...[
-                              if (i > 0)
-                                Text(
-                                  ' / ',
-                                  style: TextStyle(
-                                    color: AppColors.textHint,
-                                    fontSize: Responsive.sp(12),
-                                  ),
-                                ),
-                              GestureDetector(
-                                onTap: () => controller.openFolder(chain[i].id),
-                                child: Text(
-                                  chain[i].name,
-                                  style: TextStyle(
-                                    color: i == chain.length - 1
-                                        ? AppColors.textPrimary
-                                        : AppColors.brandIndigo,
-                                    fontSize: Responsive.sp(12),
-                                    fontWeight:
-                                        i == chain.length - 1 ? FontWeight.w700 : FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
           ),
-        ),
-        body: _FileMapShell(controller: controller),
+        ],
       ),
     );
   }
@@ -137,18 +193,31 @@ class FileMapView extends GetView<FileMapController> {
 
 /// Tab shell: Map (existing graph) · Gesture · Voice (hook your flows here).
 class _FileMapShell extends StatefulWidget {
-  const _FileMapShell({required this.controller});
+  const _FileMapShell({
+    required this.controller,
+    required this.tab,
+    required this.onTabChanged,
+  });
 
   final FileMapController controller;
+  final FileMapShellTab tab;
+  final ValueChanged<FileMapShellTab> onTabChanged;
 
   @override
   State<_FileMapShell> createState() => _FileMapShellState();
 }
 
 class _FileMapShellState extends State<_FileMapShell> {
-  FileMapShellTab _tab = FileMapShellTab.map;
+  static const _tabBarHeight = 88.0;
+  static const _gestureActionHeight = 56.0;
+  static const _gestureActionGap = 20.0;
 
-  static const _tabBarHeight = 72.0;
+  double get _contentBottomInset {
+    if (widget.tab == FileMapShellTab.gesture) {
+      return _tabBarHeight + _gestureActionHeight + _gestureActionGap + 8;
+    }
+    return _tabBarHeight;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -156,18 +225,25 @@ class _FileMapShellState extends State<_FileMapShell> {
       fit: StackFit.expand,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: _tabBarHeight),
+          padding: EdgeInsets.only(bottom: _contentBottomInset),
           child: _buildTabBody(),
         ),
+        if (widget.tab == FileMapShellTab.gesture)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: _tabBarHeight + _gestureActionGap,
+            child: const _GestureActionBar(),
+          ),
         Positioned(
           left: 16,
           right: 16,
-          bottom: 0,
+          bottom: 8,
           child: SafeArea(
             top: false,
             child: _FileMapModeBar(
-              selected: _tab,
-              onSelected: (tab) => setState(() => _tab = tab),
+              selected: widget.tab,
+              onSelected: widget.onTabChanged,
             ),
           ),
         ),
@@ -176,18 +252,53 @@ class _FileMapShellState extends State<_FileMapShell> {
   }
 
   Widget _buildTabBody() {
-    switch (_tab) {
+    switch (widget.tab) {
       case FileMapShellTab.map:
         return _MapTabBody(controller: widget.controller);
       case FileMapShellTab.gesture:
-        return const _GestureTabBody();
+        return const GesturePadBody();
       case FileMapShellTab.voice:
-        return const _VoiceTabBody();
+        return _MapTabBody(controller: widget.controller);
     }
   }
 }
 
-/// Existing File Map graph + folder flow.
+class _GestureActionBar extends StatelessWidget {
+  const _GestureActionBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<GestureShapesController>();
+
+    return Material(
+      elevation: 4,
+      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: controller.clearDraft,
+                child: const Text('Clear'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => controller.tryMatchAndOpen(clearOnMiss: true),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: const Text('Open match'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MapTabBody extends StatelessWidget {
   const _MapTabBody({required this.controller});
 
@@ -332,103 +443,6 @@ class _MapTabBody extends StatelessWidget {
         ],
       );
     });
-  }
-}
-
-/// Placeholder — replace with gesture-based file map controls.
-class _GestureTabBody extends StatelessWidget {
-  const _GestureTabBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ModePlaceholder(
-      icon: Icons.near_me_outlined,
-      title: 'Gesture',
-      body: 'Gesture controls for the file map will live here.',
-    );
-  }
-}
-
-/// Placeholder — replace with voice-based file map controls.
-class _VoiceTabBody extends StatelessWidget {
-  const _VoiceTabBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return _ModePlaceholder(
-      icon: Icons.mic_none_rounded,
-      title: 'Voice',
-      body: 'Voice commands for the file map will live here.',
-    );
-  }
-}
-
-class _ModePlaceholder extends StatelessWidget {
-  const _ModePlaceholder({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(color: Color(0xFFF7F7FC)),
-        CustomPaint(
-          painter: _InfiniteDotGridPainter(transform: Matrix4.identity()),
-          child: const SizedBox.expand(),
-        ),
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: AppColors.brandIndigo.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, color: AppColors.brandIndigo, size: 34),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: Responsive.sp(20),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    body,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: Responsive.sp(14),
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
 

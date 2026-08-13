@@ -33,7 +33,20 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
                     try {
-                        revealFolder(path)
+                        revealPath(path)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("OPEN_FAILED", e.message, null)
+                    }
+                }
+                "revealPath" -> {
+                    val path = call.argument<String>("path")
+                    if (path.isNullOrBlank()) {
+                        result.error("INVALID", "path is required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        revealPath(path)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("OPEN_FAILED", e.message, null)
@@ -45,6 +58,40 @@ class MainActivity : FlutterActivity() {
     }
 
     /// Open [path] in the system Files / Documents UI (map stays unchanged).
+    private fun revealPath(path: String) {
+        val file = File(path)
+        if (!file.exists()) {
+            throw IllegalArgumentException("Path not found")
+        }
+
+        if (file.isFile) {
+            val uri = Uri.fromFile(file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, guessMimeType(file.name))
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(intent, null))
+            return
+        }
+
+        revealFolder(path)
+    }
+
+    private fun guessMimeType(name: String): String {
+        val ext = name.substringAfterLast('.', "").lowercase()
+        return when (ext) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "gif" -> "image/gif"
+            "pdf" -> "application/pdf"
+            "txt" -> "text/plain"
+            "mp4" -> "video/mp4"
+            "mp3" -> "audio/mpeg"
+            else -> "*/*"
+        }
+    }
+
     private fun revealFolder(path: String) {
         val file = File(path)
         if (!file.exists() || !file.isDirectory) {

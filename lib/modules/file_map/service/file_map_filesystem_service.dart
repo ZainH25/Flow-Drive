@@ -43,12 +43,12 @@ class FileMapFileSystemService {
     );
   }
 
-  /// Open [path] in the system file manager (Finder / Explorer / Files).
-  /// Does not change the File Map — browse only.
+  /// Open [path] in the system file manager or default app (Finder / Explorer / Files).
+  /// Works for files and folders. Does not change the File Map.
   Future<void> revealInSystemFileManager(String path) async {
-    final dir = Directory(path);
-    if (!await dir.exists()) {
-      throw Exception('That folder is no longer available on disk.');
+    final entity = FileSystemEntity.typeSync(path);
+    if (entity == FileSystemEntityType.notFound) {
+      throw Exception('That path is no longer available on disk.');
     }
 
     if (Platform.isMacOS) {
@@ -57,14 +57,19 @@ class FileMapFileSystemService {
         throw Exception(
           (result.stderr.toString().trim().isNotEmpty)
               ? result.stderr.toString().trim()
-              : 'Could not open Finder at that path.',
+              : 'Could not open that path in Finder.',
         );
       }
       return;
     }
 
     if (Platform.isWindows) {
-      await Process.run('explorer', [path]);
+      final dir = Directory(path);
+      if (await dir.exists()) {
+        await Process.run('explorer', [path]);
+      } else {
+        await Process.run('explorer', ['/select,', path]);
+      }
       return;
     }
 
@@ -74,25 +79,25 @@ class FileMapFileSystemService {
         throw Exception(
           (result.stderr.toString().trim().isNotEmpty)
               ? result.stderr.toString().trim()
-              : 'Could not open the file manager at that path.',
+              : 'Could not open that path in the file manager.',
         );
       }
       return;
     }
 
-    // iPhone / Android — native Files / Documents UI (same idea as Finder).
+    // iPhone / Android — native Files / Documents UI.
     if (Platform.isAndroid) {
       await AndroidStoragePermission.ensure();
     }
 
     try {
-      await _storageChannel.invokeMethod<void>('revealFolder', {'path': path});
+      await _storageChannel.invokeMethod<void>('revealPath', {'path': path});
     } on MissingPluginException {
       throw Exception(
-        'Folder reveal is not ready. Fully stop the app and run again (not hot reload).',
+        'Path reveal is not ready. Fully stop the app and run again (not hot reload).',
       );
     } on PlatformException catch (e) {
-      throw Exception(e.message ?? 'Could not open that folder in Files.');
+      throw Exception(e.message ?? 'Could not open that path in Files.');
     }
   }
 

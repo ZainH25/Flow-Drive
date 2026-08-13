@@ -31,6 +31,7 @@ class FileMapController extends GetxController {
   final rootId = RxnString();
   final focusedId = RxnString();
   final statusMsg = RxnString();
+  final openedItemLabel = RxnString();
   final canvasSize = const Size(360, 640).obs;
 
   /// Previous map roots after "Make root" — used by the root back button.
@@ -355,6 +356,10 @@ class FileMapController extends GetxController {
     await seedRoot(folderNode, pushHistory: true);
   }
 
+  void dismissOpenedItem() {
+    openedItemLabel.value = null;
+  }
+
   /// Just Open — reveal this path in Finder / system file manager.
   /// The File Map is left unchanged.
   Future<void> openFolderInLocalStorage(FileGraphNode folderNode) async {
@@ -362,6 +367,7 @@ class FileMapController extends GetxController {
     try {
       await fs.revealInSystemFileManager(folderNode.path);
       statusMsg.value = 'Opened “${folderNode.name}” in local storage.';
+      openedItemLabel.value = folderNode.name;
     } catch (e) {
       Get.snackbar(
         'Cannot open folder',

@@ -2,6 +2,8 @@ import 'package:get/get.dart';
 
 import '../../modules/auth/view/login_view.dart';
 import '../../modules/dashboard/view/dashboard_view.dart';
+import '../../modules/gesture_shapes/binding/gesture_shapes_binding.dart';
+import '../../modules/gesture_shapes/view/gesture_shapes_view.dart';
 import '../../modules/file_map/binding/file_map_binding.dart';
 import '../../modules/file_map/view/file_map_view.dart';
 import '../../modules/onboarding/view/onboarding_view.dart';
@@ -32,6 +34,11 @@ class AppPages {
       name: AppRoutes.fileMap,
       page: () => const FileMapView(),
       binding: FileMapBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.gestureShapes,
+      page: () => const GestureShapesView(),
+      binding: GestureShapesBinding(),
     ),
     GetPage(name: AppRoutes.colorTheme, page: () => const ColorThemePage()),
     GetPage(

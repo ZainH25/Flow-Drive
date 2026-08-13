@@ -89,6 +89,7 @@ final class IosFolderAccessChannel: NSObject, UIDocumentPickerDelegate {
 
     do {
       let mirrored = try mirrorFolder(from: sourceURL)
+      GraphMapMirrorRegistry.register(mirrorRootPath: mirrored.path, sourceURL: sourceURL)
       finish([
         "path": mirrored.path,
         "name": sourceURL.lastPathComponent,
