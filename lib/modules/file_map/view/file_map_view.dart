@@ -9,6 +9,9 @@ import '../../../core/utils/responsive.dart';
 import '../controller/file_map_controller.dart';
 import '../model/file_graph_node.dart';
 
+/// Bottom tabs in File Map — wire [gesture] / [voice] bodies to your own flows.
+enum FileMapShellTab { map, gesture, voice }
+
 /// Light graph map for fast file retrieval — opens files, never sends.
 class FileMapView extends GetView<FileMapController> {
   const FileMapView({super.key});
@@ -126,36 +129,109 @@ class FileMapView extends GetView<FileMapController> {
             }),
           ),
         ),
-        body: Obx(() {
-          if (!controller.ready.value) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.brandIndigo));
-          }
+        body: _FileMapShell(controller: controller),
+      ),
+    );
+  }
+}
 
-          if (controller.error.value != null) {
-            return _MessageState(
-              icon: Icons.error_outline_rounded,
-              iconColor: AppColors.error,
-              title: 'Couldn’t load files',
-              body: controller.error.value!,
-              actionLabel: 'Retry',
-              onAction: controller.retryBootstrap,
-            );
-          }
+/// Tab shell: Map (existing graph) · Gesture · Voice (hook your flows here).
+class _FileMapShell extends StatefulWidget {
+  const _FileMapShell({required this.controller});
 
-          if (controller.rootId.value == null) {
-            return _MessageState(
-              icon: Icons.account_tree_outlined,
-              iconColor: AppColors.brandIndigo,
-              title: 'Map a folder',
-              body:
-                  'Choose a folder. Flow maps its files (PDF, images, and more) as a graph — swipe or tap a node to open it.',
-              actionLabel: 'Choose folder',
-              onAction: controller.grantAccess,
-            );
-          }
+  final FileMapController controller;
 
-          if (controller.mapping.value) {
-            return Center(
+  @override
+  State<_FileMapShell> createState() => _FileMapShellState();
+}
+
+class _FileMapShellState extends State<_FileMapShell> {
+  FileMapShellTab _tab = FileMapShellTab.map;
+
+  static const _tabBarHeight = 72.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: _tabBarHeight),
+          child: _buildTabBody(),
+        ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: _FileMapModeBar(
+              selected: _tab,
+              onSelected: (tab) => setState(() => _tab = tab),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabBody() {
+    switch (_tab) {
+      case FileMapShellTab.map:
+        return _MapTabBody(controller: widget.controller);
+      case FileMapShellTab.gesture:
+        return const _GestureTabBody();
+      case FileMapShellTab.voice:
+        return const _VoiceTabBody();
+    }
+  }
+}
+
+/// Existing File Map graph + folder flow.
+class _MapTabBody extends StatelessWidget {
+  const _MapTabBody({required this.controller});
+
+  final FileMapController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (!controller.ready.value) {
+        return const Center(child: CircularProgressIndicator(color: AppColors.brandIndigo));
+      }
+
+      if (controller.error.value != null) {
+        return _MessageState(
+          icon: Icons.error_outline_rounded,
+          iconColor: AppColors.error,
+          title: 'Couldn’t load files',
+          body: controller.error.value!,
+          actionLabel: 'Retry',
+          onAction: controller.retryBootstrap,
+          showDotGrid: true,
+        );
+      }
+
+      if (controller.rootId.value == null) {
+        return _MessageState(
+          icon: Icons.account_tree_outlined,
+          iconColor: AppColors.brandIndigo,
+          title: 'Map a folder',
+          body:
+              'Choose a folder. Flow maps its files (PDF, images, and more) as a graph — swipe or tap a node to open it.',
+          actionLabel: 'Choose folder',
+          onAction: controller.grantAccess,
+          showDotGrid: true,
+          useGradientButton: true,
+        );
+      }
+
+      if (controller.mapping.value) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: Color(0xFFF7F7FC)),
+            Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -170,79 +246,297 @@ class FileMapView extends GetView<FileMapController> {
                   ),
                 ],
               ),
-            );
-          }
+            ),
+          ],
+        );
+      }
 
-          return Column(
-            children: [
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.infoBannerFill,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.infoBannerBorder),
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF0FF),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFD8DCFF)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.brandIndigo.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.touch_app_rounded,
+                    color: AppColors.brandIndigo,
+                    size: 20,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.touch_app_rounded, color: AppColors.brandIndigo, size: 22),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Drag → release on a folder: Just open (Finder, map unchanged) or Make root. Back returns to the previous root.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: Responsive.sp(12),
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(child: _GraphMapView(controller: controller)),
-              if (controller.statusMsg.value != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
-                    controller.statusMsg.value!,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
+                    'Drag to highlight a path — release on a file to open it, or on a folder to make root / just open. Double-tap any file to open. Pinch or slide with two fingers to explore branches.',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: Responsive.sp(12),
+                      height: 1.4,
                     ),
                   ),
                 ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: controller.grantAccess,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.brandIndigo,
-                        side: const BorderSide(color: AppColors.brandIndigo),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      icon: const Icon(Icons.folder_open_rounded),
-                      label: const Text(
-                        'Choose Folder',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
+              ],
+            ),
+          ),
+          Expanded(child: _GraphMapView(controller: controller)),
+          if (controller.statusMsg.value != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                controller.statusMsg.value!,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: Responsive.sp(12),
                 ),
               ),
-            ],
-          );
-        }),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: controller.grantAccess,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.brandIndigo,
+                  backgroundColor: AppColors.surface,
+                  side: const BorderSide(color: AppColors.brandIndigo, width: 1.4),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+                icon: const Icon(Icons.folder_open_rounded),
+                label: const Text(
+                  'Choose Folder',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+/// Placeholder — replace with gesture-based file map controls.
+class _GestureTabBody extends StatelessWidget {
+  const _GestureTabBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModePlaceholder(
+      icon: Icons.near_me_outlined,
+      title: 'Gesture',
+      body: 'Gesture controls for the file map will live here.',
+    );
+  }
+}
+
+/// Placeholder — replace with voice-based file map controls.
+class _VoiceTabBody extends StatelessWidget {
+  const _VoiceTabBody();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModePlaceholder(
+      icon: Icons.mic_none_rounded,
+      title: 'Voice',
+      body: 'Voice commands for the file map will live here.',
+    );
+  }
+}
+
+class _ModePlaceholder extends StatelessWidget {
+  const _ModePlaceholder({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Color(0xFFF7F7FC)),
+        CustomPaint(
+          painter: _InfiniteDotGridPainter(transform: Matrix4.identity()),
+          child: const SizedBox.expand(),
+        ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.brandIndigo.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: AppColors.brandIndigo, size: 34),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: Responsive.sp(20),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    body,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: Responsive.sp(14),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FileMapModeBar extends StatelessWidget {
+  const _FileMapModeBar({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final FileMapShellTab selected;
+  final ValueChanged<FileMapShellTab> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _FileMapModeTab(
+            label: 'Map',
+            icon: Icons.account_tree_outlined,
+            selected: selected == FileMapShellTab.map,
+            onTap: () => onSelected(FileMapShellTab.map),
+          ),
+          _FileMapModeTab(
+            label: 'Gesture',
+            icon: Icons.near_me_outlined,
+            selected: selected == FileMapShellTab.gesture,
+            onTap: () => onSelected(FileMapShellTab.gesture),
+          ),
+          _FileMapModeTab(
+            label: 'Voice',
+            icon: Icons.mic_none_rounded,
+            selected: selected == FileMapShellTab.voice,
+            onTap: () => onSelected(FileMapShellTab.voice),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FileMapModeTab extends StatelessWidget {
+  const _FileMapModeTab({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.brandIndigo : Colors.transparent,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? Colors.white : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: Responsive.sp(13),
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -258,21 +552,25 @@ class _GraphMapView extends StatefulWidget {
 }
 
 class _GraphMapViewState extends State<_GraphMapView> {
-  final _scrollController = ScrollController();
+  final _transformController = TransformationController();
   String? _activeId;
   final List<String> _trail = [];
   double _trailOpacity = 0;
 
   String? _doubleTapCandidateId;
   DateTime? _doubleTapAt;
-  Offset? _doubleTapDownPos;
   bool _dragActive = false;
+  bool _pathTracking = false;
+  bool _pathMoved = false;
+  Offset? _pathStart;
+  int _pointerCount = 0;
+  String? _lastCenteredId;
 
   static const _doubleTapWindow = Duration(milliseconds: 350);
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _transformController.dispose();
     super.dispose();
   }
 
@@ -282,30 +580,29 @@ class _GraphMapViewState extends State<_GraphMapView> {
     _scrollToFocused();
   }
 
-  void _scrollToFocused() {
+  void _scrollToFocused({bool force = false}) {
     final focusedId = widget.controller.focusedId.value;
     if (focusedId == null) return;
+    if (!force && focusedId == _lastCenteredId) return;
     final target = widget.controller.nodes[focusedId];
     if (target == null) return;
+    _lastCenteredId = focusedId;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      final canvasH = widget.controller.canvasSize.value.height;
-      final screenH = MediaQuery.sizeOf(context).height;
-      final y = (canvasH - target.y - screenH / 2).clamp(
-        0.0,
-        _scrollController.position.maxScrollExtent,
-      );
-      _scrollController.animateTo(
-        y,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOut,
-      );
+      if (!mounted) return;
+      final viewport = MediaQuery.sizeOf(context);
+      final scale = _transformController.value.getMaxScaleOnAxis().clamp(0.45, 2.5);
+      final dx = viewport.width / 2 - target.x * scale;
+      final dy = viewport.height / 2 - target.y * scale;
+      final next = Matrix4.identity()
+        ..translateByDouble(dx, dy, 0, 1)
+        ..scaleByDouble(scale, scale, 1, 1);
+      _transformController.value = next;
     });
   }
 
   String? _hitTest(Offset local) {
-    const hitSlack = 14.0;
+    const hitSlack = 18.0;
     String? best;
     var bestDist = double.infinity;
 
@@ -372,6 +669,7 @@ class _GraphMapViewState extends State<_GraphMapView> {
     final id = _activeId;
     _setActive(null);
     _dragActive = false;
+    _pathTracking = false;
 
     if (id == null) {
       _fadeTrailSoon();
@@ -381,7 +679,6 @@ class _GraphMapViewState extends State<_GraphMapView> {
     HapticFeedback.mediumImpact();
 
     if (_isFile(id)) {
-      // Drag → release on any file opens it.
       await widget.controller.openFile(id, context);
       if (!mounted) return;
       _fadeTrailSoon();
@@ -393,11 +690,10 @@ class _GraphMapViewState extends State<_GraphMapView> {
       if (isRoot) {
         widget.controller.openFolder(id);
       } else {
-        // Drag → release on a folder: make root or just open in place.
         await widget.controller.offerMakeRootOrNavigate(id, context);
       }
       if (!mounted) return;
-      _scrollToFocused();
+      _scrollToFocused(force: true);
       _fadeTrailSoon();
       return;
     }
@@ -406,7 +702,6 @@ class _GraphMapViewState extends State<_GraphMapView> {
   }
 
   void _handleTap(String id) {
-    // Ignore tap that follows a drag gesture.
     if (_dragActive) return;
 
     if (_isFile(id)) {
@@ -437,7 +732,6 @@ class _GraphMapViewState extends State<_GraphMapView> {
       return;
     }
 
-    // Folder: single tap navigates (no dialog — dialog is drag-release only).
     if (_isFolder(id)) {
       HapticFeedback.mediumImpact();
       widget.controller.openFolder(id);
@@ -454,64 +748,131 @@ class _GraphMapViewState extends State<_GraphMapView> {
 
       _scrollToFocused();
 
-      return SingleChildScrollView(
-        controller: _scrollController,
-        padding: const EdgeInsets.only(bottom: 24),
-        child: SizedBox(
-          width: canvasSize.width,
-          height: canvasSize.height,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: (d) {
-              _dragActive = true;
-              final hit = _hitTest(d.localPosition);
-              setState(() {
-                _trail
-                  ..clear()
-                  ..addAll(hit != null ? [hit] : []);
-                _trailOpacity = hit != null ? 1 : 0;
-              });
-              _setActive(hit, haptic: hit != null);
-            },
-            onPanUpdate: (d) {
-              final hit = _hitTest(d.localPosition);
-              _updateTrail(hit);
-              if (hit != null) _setActive(hit);
-            },
-            onPanEnd: (_) => _onPanEnd(),
-            onPanCancel: () {
-              _dragActive = false;
-              _fadeTrailSoon();
-            },
-            onTapDown: (d) {
-              _doubleTapDownPos = d.localPosition;
-            },
-            onTapUp: (d) {
-              final pos = _doubleTapDownPos ?? d.localPosition;
-              _doubleTapDownPos = null;
-              final hit = _hitTest(pos);
-              if (hit != null) _handleTap(hit);
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CustomPaint(
-                  size: canvasSize,
-                  painter: _GraphEdgesPainter(
-                    nodes: nodes,
-                    trail: List<String>.from(_trail),
-                    trailOpacity: _trailOpacity,
+      // Two-finger pan/zoom via InteractiveViewer; one-finger on a node keeps path logic.
+      // Dot grid is painted in viewport space so it tiles infinitely while panning.
+      return ClipRect(
+        child: ColoredBox(
+          color: const Color(0xFFF7F7FC),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedBuilder(
+                animation: _transformController,
+                builder: (context, _) {
+                  return CustomPaint(
+                    painter: _InfiniteDotGridPainter(
+                      transform: _transformController.value,
+                    ),
+                    child: const SizedBox.expand(),
+                  );
+                },
+              ),
+              InteractiveViewer(
+                transformationController: _transformController,
+                constrained: false,
+                boundaryMargin: const EdgeInsets.all(4000),
+                minScale: 0.45,
+                maxScale: 2.6,
+                panEnabled: !_pathTracking,
+                scaleEnabled: true,
+                child: SizedBox(
+                  width: canvasSize.width,
+                  height: canvasSize.height,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (e) {
+                      _pointerCount += 1;
+                      if (_pointerCount >= 2) {
+                        // Two fingers → canvas move/zoom; cancel path tracking.
+                        if (_pathTracking) {
+                          setState(() {
+                            _pathTracking = false;
+                            _pathMoved = false;
+                            _dragActive = false;
+                          });
+                        }
+                        return;
+                      }
+
+                      // Child coords are already in scene space under InteractiveViewer.
+                      final scene = e.localPosition;
+                      final hit = _hitTest(scene);
+                      _pathStart = scene;
+                      _pathMoved = false;
+                      if (hit != null) {
+                        setState(() {
+                          _pathTracking = true;
+                          _dragActive = true;
+                          _trail
+                            ..clear()
+                            ..add(hit);
+                          _trailOpacity = 1;
+                        });
+                        _setActive(hit, haptic: true);
+                      }
+                    },
+                    onPointerMove: (e) {
+                      if (!_pathTracking || _pointerCount != 1) return;
+                      final scene = e.localPosition;
+                      if (_pathStart != null && (scene - _pathStart!).distance > 10) {
+                        _pathMoved = true;
+                      }
+                      final hit = _hitTest(scene);
+                      _updateTrail(hit);
+                      if (hit != null) _setActive(hit);
+                    },
+                    onPointerUp: (e) {
+                      _pointerCount = (_pointerCount - 1).clamp(0, 10);
+                      if (_pathTracking && _pointerCount == 0) {
+                        if (!_pathMoved) {
+                          final id = _activeId;
+                          _pathTracking = false;
+                          _dragActive = false;
+                          _setActive(null);
+                          if (id != null) {
+                            _handleTap(id);
+                          } else {
+                            _fadeTrailSoon();
+                          }
+                        } else {
+                          _onPanEnd();
+                        }
+                        return;
+                      }
+                    },
+                    onPointerCancel: (_) {
+                      _pointerCount = (_pointerCount - 1).clamp(0, 10);
+                      if (_pointerCount == 0) {
+                        _pathTracking = false;
+                        _pathMoved = false;
+                        _dragActive = false;
+                        _fadeTrailSoon();
+                      }
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        CustomPaint(
+                          size: canvasSize,
+                          painter: _GraphEdgesPainter(
+                            nodes: nodes,
+                            trail: List<String>.from(_trail),
+                            trailOpacity: _trailOpacity,
+                          ),
+                        ),
+                        for (final n in nodes.values)
+                          _GraphNodeWidget(
+                            node: n,
+                            isFocused: focusedId == n.id,
+                            isActive: _activeId == n.id,
+                            inTrail: _trail.contains(n.id) && _activeId != n.id,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                for (final n in nodes.values)
-                  _GraphNodeWidget(
-                    node: n,
-                    isFocused: focusedId == n.id,
-                    isActive: _activeId == n.id,
-                    inTrail: _trail.contains(n.id) && _activeId != n.id,
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
@@ -535,8 +896,8 @@ class _GraphNodeWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRoot = node.isRoot;
-    final radius = isRoot ? FileMapConstants.rootRadius + 2 : FileMapConstants.nodeRadius + 2;
-    final scale = isActive ? 1.35 : inTrail ? 1.12 : 1.0;
+    final radius = isRoot ? FileMapConstants.rootRadius + 3 : FileMapConstants.nodeRadius + 3;
+    final scale = isActive ? 1.28 : inTrail ? 1.1 : 1.0;
 
     final Color bg;
     final Color border;
@@ -583,12 +944,15 @@ class _GraphNodeWidget extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: bg,
                   shape: BoxShape.circle,
-                  border: Border.all(color: border, width: isFocused || isActive ? 2 : 1),
+                  border: Border.all(
+                    color: border,
+                    width: isRoot || isFocused || isActive ? 2 : 1,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withValues(alpha: isRoot ? 0.12 : 0.07),
+                      blurRadius: isRoot ? 14 : 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
@@ -604,36 +968,43 @@ class _GraphNodeWidget extends StatelessWidget {
                       )
                     : Icon(
                         _iconForNode(node),
-                        size: isRoot ? 18 : 16,
+                        size: isRoot ? 24 : 22,
                         color: iconColor,
                       ),
               ),
               if (node.node.isFolder && (node.childCount ?? 0) > 0)
                 Positioned(
-                  top: -2,
-                  right: -2,
+                  top: -3,
+                  right: -3,
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
                     decoration: BoxDecoration(
                       color: AppColors.brandIndigo,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.brandIndigo.withValues(alpha: 0.25),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
                     alignment: Alignment.center,
                     child: Text(
                       '${node.childCount}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 8,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ),
               Positioned(
-                top: radius * 2 + 4,
-                width: isRoot ? 88 : 64,
-                left: radius - (isRoot ? 44 : 32),
+                top: radius * 2 + 8,
+                width: isRoot ? 110 : 88,
+                left: radius - (isRoot ? 55 : 44),
                 child: Text(
                   shortGraphLabel(node.node.name, maxChars: isRoot ? 16 : 12),
                   textAlign: TextAlign.center,
@@ -641,7 +1012,7 @@ class _GraphNodeWidget extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: isRoot ? AppColors.brandIndigo : AppColors.textSecondary,
-                    fontSize: isRoot ? 10 : 9,
+                    fontSize: isRoot ? 12 : 11,
                     fontWeight: isRoot ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
@@ -684,6 +1055,44 @@ class _GraphNodeWidget extends StatelessWidget {
   }
 }
 
+/// Infinite tiling dots in viewport space — scrolls forever with pan/zoom.
+class _InfiniteDotGridPainter extends CustomPainter {
+  _InfiniteDotGridPainter({required this.transform});
+
+  final Matrix4 transform;
+
+  static const _baseStep = 18.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = transform.getMaxScaleOnAxis().clamp(0.35, 3.0);
+    final tx = transform.storage[12];
+    final ty = transform.storage[13];
+    final step = _baseStep * scale;
+
+    final paint = Paint()
+      ..color = const Color(0xFFD7D9E8).withValues(alpha: 0.55)
+      ..style = PaintingStyle.fill;
+
+    // Align dots to world grid so they feel continuous while panning.
+    var startX = tx % step;
+    var startY = ty % step;
+    if (startX > 0) startX -= step;
+    if (startY > 0) startY -= step;
+
+    for (var x = startX; x < size.width + step; x += step) {
+      for (var y = startY; y < size.height + step; y += step) {
+        canvas.drawCircle(Offset(x, y), 1.05 * scale.clamp(0.7, 1.4), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _InfiniteDotGridPainter oldDelegate) {
+    return oldDelegate.transform != transform;
+  }
+}
+
 class _GraphEdgesPainter extends CustomPainter {
   _GraphEdgesPainter({
     required this.nodes,
@@ -708,8 +1117,8 @@ class _GraphEdgesPainter extends CustomPainter {
       final lit = _edgeLit(parent.node.id, n.id);
       edgePaint.color = lit
           ? AppColors.brandIndigo.withValues(alpha: 0.95 * trailOpacity.clamp(0.35, 1))
-          : AppColors.border;
-      edgePaint.strokeWidth = lit ? 2.6 : 1.2;
+          : const Color(0xFFD5D7E4);
+      edgePaint.strokeWidth = lit ? 2.6 : 1.15;
       canvas.drawLine(Offset(parent.x, parent.y), Offset(n.x, n.y), edgePaint);
     }
 
@@ -762,6 +1171,8 @@ class _MessageState extends StatelessWidget {
     required this.body,
     required this.actionLabel,
     required this.onAction,
+    this.showDotGrid = false,
+    this.useGradientButton = false,
   });
 
   final IconData icon;
@@ -770,55 +1181,113 @@ class _MessageState extends StatelessWidget {
   final String body;
   final String actionLabel;
   final VoidCallback onAction;
+  final bool showDotGrid;
+  final bool useGradientButton;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 30),
+    final content = Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 34),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: Responsive.sp(20),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: Responsive.sp(14),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 28),
+              if (useGradientButton)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buttonGradient,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.brandIndigo.withValues(alpha: 0.28),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onAction,
+                      borderRadius: BorderRadius.circular(28),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+                        child: Text(
+                          actionLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                FilledButton(
+                  onPressed: onAction,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.brandIndigo,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+            ],
           ),
-          const SizedBox(height: 20),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: Responsive.sp(18),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: Responsive.sp(14),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: onAction,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.brandIndigo,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-            child: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
+        ),
       ),
+    );
+
+    if (!showDotGrid) {
+      return SizedBox.expand(child: content);
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: Color(0xFFF7F7FC)),
+        CustomPaint(
+          painter: _InfiniteDotGridPainter(transform: Matrix4.identity()),
+          child: const SizedBox.expand(),
+        ),
+        content,
+      ],
     );
   }
 }

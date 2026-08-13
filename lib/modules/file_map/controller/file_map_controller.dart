@@ -12,12 +12,12 @@ class FileMapConstants {
 
   static const maxChildren = 12;
   static const maxTotalFolders = 220;
-  static const nodeRadius = 15.0;
-  static const rootRadius = 15.0;
-  static const levelGap = 56.0;
-  static const siblingGap = 46.0;
-  static const bottomMargin = 40.0;
-  static const topPadding = 40.0;
+  static const nodeRadius = 22.0;
+  static const rootRadius = 24.0;
+  static const levelGap = 84.0;
+  static const siblingGap = 76.0;
+  static const bottomMargin = 56.0;
+  static const topPadding = 56.0;
 }
 
 class FileMapController extends GetxController {
