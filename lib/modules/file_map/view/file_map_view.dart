@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
 import '../../gesture_shapes/controller/gesture_shapes_controller.dart';
 import '../../gesture_shapes/view/gesture_pad_body.dart';
+import '../../transfer/view/widgets/file_preview.dart';
 import '../controller/file_map_controller.dart';
 import '../model/file_graph_node.dart';
 
@@ -154,30 +155,38 @@ class _FileMapRootState extends State<_FileMapRoot> {
       ),
       body: Column(
         children: [
-          Obx(() {
-            final mapLabel = widget.controller.openedItemLabel.value;
-            final gestureLabel = Get.isRegistered<GestureShapesController>()
-                ? Get.find<GestureShapesController>().openedItemLabel.value
-                : null;
-            final label = mapLabel ?? gestureLabel;
-            if (label == null) return const SizedBox.shrink();
+          if (_tab == FileMapShellTab.gesture)
+            Obx(() {
+              final mapLabel = widget.controller.openedItemLabel.value;
+              final gestureLabel = Get.isRegistered<GestureShapesController>()
+                  ? Get.find<GestureShapesController>().openedItemLabel.value
+                  : null;
+              final label = mapLabel ?? gestureLabel;
+              if (label == null) return const SizedBox.shrink();
 
-            return OpenedPathBanner(
-              label: label,
-              onDismiss: () {
-                widget.controller.dismissOpenedItem();
-                if (Get.isRegistered<GestureShapesController>()) {
-                  Get.find<GestureShapesController>().dismissOpenedItem();
-                }
-              },
-            );
-          }),
+              return OpenedPathBanner(
+                label: label,
+                onDismiss: () {
+                  widget.controller.dismissOpenedItem();
+                  if (Get.isRegistered<GestureShapesController>()) {
+                    Get.find<GestureShapesController>().dismissOpenedItem();
+                  }
+                },
+              );
+            }),
           Expanded(
             child: _FileMapShell(
               controller: widget.controller,
               tab: _tab,
               onTabChanged: (tab) {
                 setState(() => _tab = tab);
+                if (tab == FileMapShellTab.map) {
+                  widget.controller.dismissOpenedItem();
+                  widget.controller.setDisplayMode(FileMapDisplayMode.fullTree);
+                } else if (tab == FileMapShellTab.voice) {
+                  widget.controller.dismissOpenedItem();
+                  widget.controller.setDisplayMode(FileMapDisplayMode.singleLevel);
+                }
                 if (tab == FileMapShellTab.gesture &&
                     Get.isRegistered<GestureShapesController>()) {
                   Get.find<GestureShapesController>().reloadShapes();
@@ -258,7 +267,7 @@ class _FileMapShellState extends State<_FileMapShell> {
       case FileMapShellTab.gesture:
         return const GesturePadBody();
       case FileMapShellTab.voice:
-        return _MapTabBody(controller: widget.controller);
+        return _MapTabBody(controller: widget.controller, singleLevel: true);
     }
   }
 }
@@ -300,9 +309,13 @@ class _GestureActionBar extends StatelessWidget {
 }
 
 class _MapTabBody extends StatelessWidget {
-  const _MapTabBody({required this.controller});
+  const _MapTabBody({
+    required this.controller,
+    this.singleLevel = false,
+  });
 
   final FileMapController controller;
+  final bool singleLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -327,9 +340,10 @@ class _MapTabBody extends StatelessWidget {
         return _MessageState(
           icon: Icons.account_tree_outlined,
           iconColor: AppColors.brandIndigo,
-          title: 'Map a folder',
-          body:
-              'Choose a folder. Flow maps its files (PDF, images, and more) as a graph — swipe or tap a node to open it.',
+          title: singleLevel ? 'Browse a folder' : 'Map a folder',
+          body: singleLevel
+              ? 'Choose a folder. You will see only its immediate contents — tap a subfolder to drill in one level at a time.'
+              : 'Choose a folder. Flow maps its files (PDF, images, and more) as a graph — swipe or tap a node to open it.',
           actionLabel: 'Choose folder',
           onAction: controller.grantAccess,
           showDotGrid: true,
@@ -349,7 +363,9 @@ class _MapTabBody extends StatelessWidget {
                   const CircularProgressIndicator(color: AppColors.brandIndigo),
                   const SizedBox(height: 16),
                   Text(
-                    'Mapping folders… ${controller.mappedCount.value}',
+                    singleLevel
+                        ? 'Loading folder…'
+                        : 'Mapping folders… ${controller.mappedCount.value}',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: Responsive.sp(14),
@@ -392,7 +408,9 @@ class _MapTabBody extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Drag to highlight a path — release on a file to open it, or on a folder to make root / just open. Double-tap any file to open. Pinch or slide with two fingers to explore branches.',
+                    singleLevel
+                        ? 'Each folder shows one level of its contents along the path. Tap a folder to branch in — switching a sibling collapses only that sibling’s branch. Long-press a folder for Just open / Make root; long-press a file to share.'
+                        : 'Drag to highlight a path — release on a file to open it, or on a folder to make root / just open. Double-tap any file to open. Long-press a file to share. Pinch or slide with two fingers to explore branches.',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: Responsive.sp(12),
@@ -403,7 +421,7 @@ class _MapTabBody extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(child: _GraphMapView(controller: controller)),
+          Expanded(child: _GraphMapView(controller: controller, singleLevel: singleLevel)),
           if (controller.statusMsg.value != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -557,9 +575,13 @@ class _FileMapModeTab extends StatelessWidget {
 }
 
 class _GraphMapView extends StatefulWidget {
-  const _GraphMapView({required this.controller});
+  const _GraphMapView({
+    required this.controller,
+    this.singleLevel = false,
+  });
 
   final FileMapController controller;
+  final bool singleLevel;
 
   @override
   State<_GraphMapView> createState() => _GraphMapViewState();
@@ -679,6 +701,17 @@ class _GraphMapViewState extends State<_GraphMapView> {
     });
   }
 
+  Future<void> _shareFile(GraphLayoutNode node) async {
+    HapticFeedback.mediumImpact();
+    await FilePreview.shareFile(node.node.path, node.node.name);
+  }
+
+  Future<void> _offerFolderActions(GraphLayoutNode node) async {
+    HapticFeedback.mediumImpact();
+    if (node.id == widget.controller.rootId.value) return;
+    await widget.controller.offerMakeRootOrNavigate(node.id, context);
+  }
+
   Future<void> _onPanEnd() async {
     final id = _activeId;
     _setActive(null);
@@ -700,11 +733,17 @@ class _GraphMapViewState extends State<_GraphMapView> {
     }
 
     if (_isFolder(id)) {
-      final isRoot = id == widget.controller.rootId.value;
-      if (isRoot) {
-        widget.controller.openFolder(id);
+      if (widget.singleLevel) {
+        if (id != widget.controller.focusedId.value) {
+          widget.controller.openFolder(id);
+        }
       } else {
-        await widget.controller.offerMakeRootOrNavigate(id, context);
+        final isRoot = id == widget.controller.rootId.value;
+        if (isRoot) {
+          widget.controller.openFolder(id);
+        } else {
+          await widget.controller.offerMakeRootOrNavigate(id, context);
+        }
       }
       if (!mounted) return;
       _scrollToFocused(force: true);
@@ -748,7 +787,9 @@ class _GraphMapViewState extends State<_GraphMapView> {
 
     if (_isFolder(id)) {
       HapticFeedback.mediumImpact();
-      widget.controller.openFolder(id);
+      if (!widget.singleLevel || id != widget.controller.focusedId.value) {
+        widget.controller.openFolder(id);
+      }
       _fadeTrailSoon();
     }
   }
@@ -880,6 +921,9 @@ class _GraphMapViewState extends State<_GraphMapView> {
                             isFocused: focusedId == n.id,
                             isActive: _activeId == n.id,
                             inTrail: _trail.contains(n.id) && _activeId != n.id,
+                            onLongPress: n.node.isFile
+                                ? () => _shareFile(n)
+                                : () => _offerFolderActions(n),
                           ),
                       ],
                     ),
@@ -900,12 +944,14 @@ class _GraphNodeWidget extends StatelessWidget {
     required this.isFocused,
     required this.isActive,
     required this.inTrail,
+    this.onLongPress,
   });
 
   final GraphLayoutNode node;
   final bool isFocused;
   final bool isActive;
   final bool inTrail;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -944,13 +990,15 @@ class _GraphNodeWidget extends StatelessWidget {
       curve: Curves.easeOut,
       left: node.x - radius,
       top: node.y - radius,
-      child: AnimatedScale(
-        scale: scale,
-        duration: const Duration(milliseconds: 120),
-        child: SizedBox(
-          width: radius * 2,
-          height: radius * 2,
-          child: Stack(
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 120),
+          child: SizedBox(
+            width: radius * 2,
+            height: radius * 2,
+            child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
@@ -1034,6 +1082,7 @@ class _GraphNodeWidget extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

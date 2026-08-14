@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../dashboard/model/picked_file_item.dart';
 import '../../service/ios_media_browser_service.dart';
@@ -66,6 +67,15 @@ class FilePreview {
     await _openWithSystemApp(path);
   }
 
+  static Future<void> shareFile(String path, String name) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(path)],
+        text: name,
+      ),
+    );
+  }
+
   static Future<void> _showImagePreview(
     BuildContext context,
     PickedFileItem file,
@@ -113,8 +123,14 @@ class FilePreview {
                       ),
                     ),
                     IconButton(
+                      onPressed: () => shareFile(path, file.name),
+                      icon: const Icon(Icons.share_rounded, color: Colors.white),
+                      tooltip: 'Share',
+                    ),
+                    IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      tooltip: 'Close',
                     ),
                   ],
                 ),
